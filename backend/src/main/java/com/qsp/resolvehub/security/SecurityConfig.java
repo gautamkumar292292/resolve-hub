@@ -66,35 +66,29 @@ public class SecurityConfig {
                         )
                 )
 
-                .authorizeHttpRequests(auth -> auth
 
-                        // Public authentication endpoints
+                .authorizeHttpRequests(auth -> auth
+                        // Public endpoints
                         .requestMatchers(
                                 "/api/auth/register",
-                                "/api/auth/login",
-                                "/error"
+                                "/api/auth/login"
                         ).permitAll()
 
-                        // Public endpoint: list all admins
+                        // Any authenticated role: EMPLOYEE, AGENT, or ADMIN
                         .requestMatchers(
-                                HttpMethod.GET,
-                                "/api/admin/public/admins"
-                        ).permitAll()
+                                "/api/auth/me",
+                                "/api/auth/logout"
+                        ).authenticated()
 
-                        // Admin-only endpoints
-                        .requestMatchers("/api/admin/**")
-                        .hasRole("ADMIN")
+                        // Keep your existing role-specific rules below
+                        .requestMatchers("/api/employee/**").hasRole("EMPLOYEE")
+                        .requestMatchers("/api/agent/**").hasRole("AGENT")
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
 
-                        // Agent-only endpoints
-                        .requestMatchers("/api/agent/**")
-                        .hasRole("AGENT")
-
-                        // Employee-only endpoints
-                        .requestMatchers("/api/auth/**")
-                        .hasRole("EMPLOYEE")
-
+                        // Keep this only if it matches your existing security policy
                         .anyRequest().authenticated()
                 )
+
 
                 .addFilterBefore(
                         jwtFilter,
