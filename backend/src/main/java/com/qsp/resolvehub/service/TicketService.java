@@ -39,20 +39,13 @@ public interface TicketService {
             Integer ticketId,
             String agentEmail
     );
-
-    Ticket assignTicket(Integer ticketId, Integer agentId);
-
+    
     Page<Ticket> getAllTickets(
             TicketStatus status,
             Pageable pageable
     );
 
     Ticket getTicketById(Integer ticketId);
-
-    Ticket updateTicketStatus(
-            Integer ticketId,
-            TicketStatus newStatus
-    );
 
     Ticket closeMyTicket(Integer ticketId, String employeeEmail);
 

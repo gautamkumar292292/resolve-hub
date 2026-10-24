@@ -248,8 +248,7 @@ public class TicketServiceImpl implements TicketService {
         TicketStatus oldStatus = ticket.getStatus();
 
         boolean validTransition = switch (oldStatus) {
-            case OPEN -> newStatus == TicketStatus.ASSIGNED
-                    || newStatus == TicketStatus.CLOSED;
+            case OPEN -> newStatus == TicketStatus.ASSIGNED;
 
             case ASSIGNED -> newStatus == TicketStatus.IN_PROGRESS
                     || newStatus == TicketStatus.OPEN
@@ -328,14 +327,5 @@ public class TicketServiceImpl implements TicketService {
 
         return savedTicket;
     }
-    @Override
-    public Ticket assignTicket(Integer ticketId, Integer agentId) {
-        return null;
-    }
 
-    @Override
-    public Ticket updateTicketStatus(
-            Integer ticketId, TicketStatus newStatus) {
-        return null;
-    }
 }

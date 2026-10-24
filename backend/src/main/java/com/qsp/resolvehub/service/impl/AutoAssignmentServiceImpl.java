@@ -1,3 +1,4 @@
+
 package com.qsp.resolvehub.service.impl;
 
 import com.qsp.resolvehub.entity.Role;
@@ -8,6 +9,7 @@ import com.qsp.resolvehub.exception.TicketNotFoundException;
 import com.qsp.resolvehub.repository.TicketRepository;
 import com.qsp.resolvehub.repository.UserRepository;
 import com.qsp.resolvehub.service.AutoAssignmentService;
+import com.qsp.resolvehub.service.TicketHistoryService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -23,26 +25,36 @@ public class AutoAssignmentServiceImpl implements AutoAssignmentService {
 
     private final TicketRepository ticketRepository;
     private final UserRepository userRepository;
-    private final AssignmentLock assignmentLock;
+    private final TicketHistoryService ticketHistoryService;
+
+    @Override
+    public Ticket assignToLeastBusyAgent(Integer ticketId) {
+        return null;
+    }
 
     @Override
     @Transactional
-    public Ticket assignToLeastBusyAgent(Integer ticketId) {
+    public Ticket assignToLeastBusyAgent(
+            Integer ticketId, String adminEmail) {
 
+        // Fetch and lock the ticket.
         Ticket ticket = ticketRepository.findByIdForUpdate(ticketId)
                 .orElseThrow(() ->
                         new TicketNotFoundException(
                                 "Ticket not found with ID: " + ticketId
                         ));
 
+        // Only OPEN tickets can be auto-assigned.
         if (ticket.getStatus() != TicketStatus.OPEN) {
             throw new IllegalStateException(
                     "Only OPEN tickets can be auto-assigned"
             );
         }
 
-        // Keep the remaining agent-selection and assignment logic here.
+        // Capture the previous status for audit history.
+        TicketStatus oldStatus = ticket.getStatus();
 
+        // Retrieve active agents.
         List<User> agents =
                 userRepository.findActiveAgentsForUpdate(Role.AGENT);
 
@@ -52,6 +64,7 @@ public class AutoAssignmentServiceImpl implements AutoAssignmentService {
             );
         }
 
+        // Select the agent with the fewest active assigned tickets.
         User selectedAgent = agents.stream()
                 .min(Comparator.comparingLong(agent ->
                         ticketRepository.countByAssignedToAndStatusIn(
@@ -63,10 +76,20 @@ public class AutoAssignmentServiceImpl implements AutoAssignmentService {
                         )))
                 .orElseThrow();
 
+        // Assign the ticket.
         ticket.setAssignedTo(selectedAgent);
         ticket.setStatus(TicketStatus.ASSIGNED);
 
-        return ticketRepository.save(ticket);
-    }
+        Ticket savedTicket = ticketRepository.save(ticket);
 
+        // Record the status change within the same transaction.
+        ticketHistoryService.recordStatusChange(
+                savedTicket,
+                oldStatus,
+                TicketStatus.ASSIGNED,
+                adminEmail
+        );
+
+        return savedTicket;
+    }
 }
