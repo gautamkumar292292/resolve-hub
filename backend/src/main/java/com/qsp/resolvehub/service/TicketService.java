@@ -57,4 +57,14 @@ public interface TicketService {
     Ticket closeMyTicket(Integer ticketId, String employeeEmail);
 
     Ticket reopenMyTicket(Integer ticketId, String employeeEmail);
+
+    Ticket updateTicketStatus(
+            Integer ticketId,
+            TicketStatus newStatus,
+            String changedByEmail);
+
+    Ticket assignTicket(
+            Integer ticketId,
+            Integer agentId,
+            String adminEmail);
 }

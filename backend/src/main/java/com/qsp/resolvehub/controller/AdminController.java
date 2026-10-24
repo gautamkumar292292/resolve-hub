@@ -10,7 +10,7 @@ import com.qsp.resolvehub.dto.response.TicketResponse;
 import com.qsp.resolvehub.dto.response.UserResponse;
 import com.qsp.resolvehub.entity.User;
 import com.qsp.resolvehub.service.*;
-
+import org.springframework.security.core.Authentication;
 import com.qsp.resolvehub.entity.TicketStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -120,14 +120,15 @@ public class AdminController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<TicketResponse> assignTicket(
             @PathVariable Integer ticketId,
-            @Valid @RequestBody AssignTicketRequest request) {
+            @Valid @RequestBody AssignTicketRequest request,
+            Authentication authentication) {
 
         return ResponseEntity.ok(
                 TicketResponse.from(
                         ticketService.assignTicket(
                                 ticketId,
-                                request.agentId()
-                        )
+                                request.agentId(),
+                                authentication.getName())
                 )
         );
     }
@@ -171,14 +172,15 @@ public class AdminController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<TicketResponse> updateTicketStatus(
             @PathVariable Integer ticketId,
-            @Valid @RequestBody UpdateTicketStatusRequest request) {
+            @Valid @RequestBody UpdateTicketStatusRequest request,
+            Authentication authentication) {
 
         return ResponseEntity.ok(
                 TicketResponse.from(
                         ticketService.updateTicketStatus(
                                 ticketId,
-                                request.status()
-                        )
+                                request.status(),
+                                authentication.getName())
                 )
         );
     }

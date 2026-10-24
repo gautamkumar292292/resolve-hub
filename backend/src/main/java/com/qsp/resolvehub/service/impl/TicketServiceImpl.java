@@ -6,8 +6,10 @@ import com.qsp.resolvehub.entity.Ticket;
 import com.qsp.resolvehub.entity.TicketStatus;
 import com.qsp.resolvehub.entity.User;
 import com.qsp.resolvehub.exception.TicketNotFoundException;
+import com.qsp.resolvehub.exception.UserNotFoundException;
 import com.qsp.resolvehub.repository.TicketRepository;
 import com.qsp.resolvehub.repository.UserRepository;
+import com.qsp.resolvehub.service.TicketHistoryService;
 import com.qsp.resolvehub.service.TicketService;
 
 import lombok.RequiredArgsConstructor;
@@ -18,6 +20,8 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -25,6 +29,7 @@ public class TicketServiceImpl implements TicketService {
 
     private final TicketRepository ticketRepository;
     private final UserRepository userRepository;
+    private final TicketHistoryService ticketHistoryService;
 
     private User getAgent(String email) {
         User agent = userRepository.findByEmail(email)
@@ -36,6 +41,11 @@ public class TicketServiceImpl implements TicketService {
                     "Only agents can access this resource");
         }
 
+        if (!agent.isAccount_status()) {
+            throw new AccessDeniedException(
+                    "Inactive agents cannot perform this action");
+        }
+
         return agent;
     }
 
@@ -45,15 +55,63 @@ public class TicketServiceImpl implements TicketService {
         return ticketRepository.findByIdAndAssignedTo(ticketId, agent)
                 .orElseThrow(() ->
                         new TicketNotFoundException(
-                                "Ticket not found or not assigned to you"
-                        ));
+                                "Ticket not found or not assigned to you"));
+    }
+
+    private Ticket getEmployeeTicket(
+            Integer ticketId, String employeeEmail) {
+
+        User employee = getEmployee(employeeEmail);
+
+        return ticketRepository.findByIdAndRequester(ticketId, employee)
+                .orElseThrow(() ->
+                        new TicketNotFoundException(
+                                "Ticket not found or does not belong to you"));
+    }
+
+    private User getEmployee(String email) {
+        User employee = userRepository.findByEmail(email)
+                .orElseThrow(() ->
+                        new AccessDeniedException("Employee not found"));
+
+        if (employee.getRole() != Role.EMPLOYEE) {
+            throw new AccessDeniedException(
+                    "Only employees can perform this action");
+        }
+
+        if (!employee.isAccount_status()) {
+            throw new AccessDeniedException(
+                    "Inactive employees cannot perform this action");
+        }
+
+        return employee;
+    }
+
+    private Ticket getTicketOrThrow(Integer ticketId) {
+        return ticketRepository.findById(ticketId)
+                .orElseThrow(() ->
+                        new TicketNotFoundException(
+                                "Ticket not found with ID: " + ticketId));
+    }
+
+    private void recordStatusChange(
+            Ticket ticket,
+            TicketStatus oldStatus,
+            String changedByEmail) {
+
+        if (oldStatus != ticket.getStatus()) {
+            ticketHistoryService.recordStatusChange(
+                    ticket,
+                    oldStatus,
+                    ticket.getStatus(),
+                    changedByEmail);
+        }
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<Ticket> getMyTickets(
-            String agentEmail,
-            Pageable pageable) {
+            String agentEmail, Pageable pageable) {
 
         User agent = getAgent(agentEmail);
         return ticketRepository.findByAssignedTo(agent, pageable);
@@ -67,6 +125,7 @@ public class TicketServiceImpl implements TicketService {
             Pageable pageable) {
 
         User agent = getAgent(agentEmail);
+
         return ticketRepository.findByAssignedToAndStatus(
                 agent, status, pageable);
     }
@@ -74,17 +133,13 @@ public class TicketServiceImpl implements TicketService {
     @Override
     @Transactional(readOnly = true)
     public Ticket getMyTicketById(
-            Integer ticketId,
-            String agentEmail) {
+            Integer ticketId, String agentEmail) {
 
         return getAssignedTicket(ticketId, agentEmail);
     }
 
     @Override
-    public Ticket startTicket(
-            Integer ticketId,
-            String agentEmail) {
-
+    public Ticket startTicket(Integer ticketId, String agentEmail) {
         Ticket ticket = getAssignedTicket(ticketId, agentEmail);
 
         if (ticket.getStatus() != TicketStatus.ASSIGNED) {
@@ -92,15 +147,17 @@ public class TicketServiceImpl implements TicketService {
                     "Only ASSIGNED tickets can be started");
         }
 
+        TicketStatus oldStatus = ticket.getStatus();
         ticket.setStatus(TicketStatus.IN_PROGRESS);
-        return ticketRepository.save(ticket);
+
+        Ticket savedTicket = ticketRepository.save(ticket);
+        recordStatusChange(savedTicket, oldStatus, agentEmail);
+
+        return savedTicket;
     }
 
     @Override
-    public Ticket resolveTicket(
-            Integer ticketId,
-            String agentEmail) {
-
+    public Ticket resolveTicket(Integer ticketId, String agentEmail) {
         Ticket ticket = getAssignedTicket(ticketId, agentEmail);
 
         if (ticket.getStatus() != TicketStatus.IN_PROGRESS) {
@@ -108,58 +165,60 @@ public class TicketServiceImpl implements TicketService {
                     "Only IN_PROGRESS tickets can be resolved");
         }
 
+        TicketStatus oldStatus = ticket.getStatus();
         ticket.setStatus(TicketStatus.RESOLVED);
-        ticket.setResolvedAt(java.time.LocalDateTime.now());
+        ticket.setResolvedAt(LocalDateTime.now());
 
-        return ticketRepository.save(ticket);
+        Ticket savedTicket = ticketRepository.save(ticket);
+        recordStatusChange(savedTicket, oldStatus, agentEmail);
+
+        return savedTicket;
     }
 
     @Override
-    public Ticket assignTicket(Integer ticketId, Integer agentId) {
+    public Ticket assignTicket(
+            Integer ticketId,
+            Integer agentId,
+            String adminEmail) {
 
-        Ticket ticket = ticketRepository.findById(ticketId)
-                .orElseThrow(() ->
-                        new TicketNotFoundException(
-                                "Ticket not found with ID: " + ticketId
-                        ));
+        Ticket ticket = getTicketOrThrow(ticketId);
 
         User agent = userRepository.findById(agentId)
                 .orElseThrow(() ->
-                        new com.qsp.resolvehub.exception.UserNotFoundException(
-                                "User not found with ID: " + agentId
-                        ));
+                        new UserNotFoundException(
+                                "User not found with ID: " + agentId));
 
         if (agent.getRole() != Role.AGENT) {
             throw new IllegalArgumentException(
-                    "Tickets can only be assigned to users with AGENT role"
-            );
+                    "Tickets can only be assigned to users with AGENT role");
         }
 
         if (!agent.isAccount_status()) {
             throw new IllegalStateException(
-                    "Cannot assign a ticket to an inactive agent"
-            );
+                    "Cannot assign a ticket to an inactive agent");
         }
 
         if (ticket.getStatus() != TicketStatus.OPEN
                 && ticket.getStatus() != TicketStatus.REOPENED) {
             throw new IllegalStateException(
-                    "Only OPEN or REOPENED tickets can be assigned"
-            );
+                    "Only OPEN or REOPENED tickets can be assigned");
         }
+
+        TicketStatus oldStatus = ticket.getStatus();
 
         ticket.setAssignedTo(agent);
         ticket.setStatus(TicketStatus.ASSIGNED);
 
-        return ticketRepository.save(ticket);
-    }
+        Ticket savedTicket = ticketRepository.save(ticket);
+        recordStatusChange(savedTicket, oldStatus, adminEmail);
 
+        return savedTicket;
+    }
 
     @Override
     @Transactional(readOnly = true)
     public Page<Ticket> getAllTickets(
-            TicketStatus status,
-            Pageable pageable) {
+            TicketStatus status, Pageable pageable) {
 
         if (status == null) {
             return ticketRepository.findAll(pageable);
@@ -168,33 +227,27 @@ public class TicketServiceImpl implements TicketService {
         return ticketRepository.findByStatus(status, pageable);
     }
 
-
     @Override
     @Transactional(readOnly = true)
     public Ticket getTicketById(Integer ticketId) {
-
-        return ticketRepository.findById(ticketId)
-                .orElseThrow(() ->
-                        new TicketNotFoundException(
-                                "Ticket not found with ID: " + ticketId
-                        ));
+        return getTicketOrThrow(ticketId);
     }
-
 
     @Override
     public Ticket updateTicketStatus(
             Integer ticketId,
-            TicketStatus newStatus) {
+            TicketStatus newStatus,
+            String changedByEmail) {
 
-        Ticket ticket = ticketRepository.findById(ticketId)
-                .orElseThrow(() ->
-                        new TicketNotFoundException(
-                                "Ticket not found with ID: " + ticketId
-                        ));
+        if (newStatus == null) {
+            throw new IllegalArgumentException(
+                    "New ticket status cannot be null");
+        }
 
-        TicketStatus currentStatus = ticket.getStatus();
+        Ticket ticket = getTicketOrThrow(ticketId);
+        TicketStatus oldStatus = ticket.getStatus();
 
-        boolean validTransition = switch (currentStatus) {
+        boolean validTransition = switch (oldStatus) {
             case OPEN -> newStatus == TicketStatus.ASSIGNED
                     || newStatus == TicketStatus.CLOSED;
 
@@ -215,27 +268,30 @@ public class TicketServiceImpl implements TicketService {
                     || newStatus == TicketStatus.CLOSED;
         };
 
-        if (currentStatus == newStatus || !validTransition) {
+        if (oldStatus == newStatus || !validTransition) {
             throw new IllegalStateException(
                     "Invalid ticket status transition: "
-                            + currentStatus + " -> " + newStatus
-            );
+                            + oldStatus + " -> " + newStatus);
         }
 
         ticket.setStatus(newStatus);
 
         if (newStatus == TicketStatus.RESOLVED) {
-            ticket.setResolvedAt(java.time.LocalDateTime.now());
+            ticket.setResolvedAt(LocalDateTime.now());
         } else if (newStatus == TicketStatus.REOPENED) {
             ticket.setResolvedAt(null);
         }
 
-        return ticketRepository.save(ticket);
+        Ticket savedTicket = ticketRepository.save(ticket);
+        recordStatusChange(savedTicket, oldStatus, changedByEmail);
+
+        return savedTicket;
     }
 
-
     @Override
-    public Ticket closeMyTicket(Integer ticketId, String employeeEmail) {
+    public Ticket closeMyTicket(
+            Integer ticketId, String employeeEmail) {
+
         Ticket ticket = getEmployeeTicket(ticketId, employeeEmail);
 
         if (ticket.getStatus() != TicketStatus.RESOLVED) {
@@ -243,13 +299,19 @@ public class TicketServiceImpl implements TicketService {
                     "Only RESOLVED tickets can be closed by employees");
         }
 
+        TicketStatus oldStatus = ticket.getStatus();
         ticket.setStatus(TicketStatus.CLOSED);
 
-        return ticketRepository.save(ticket);
+        Ticket savedTicket = ticketRepository.save(ticket);
+        recordStatusChange(savedTicket, oldStatus, employeeEmail);
+
+        return savedTicket;
     }
 
     @Override
-    public Ticket reopenMyTicket(Integer ticketId, String employeeEmail) {
+    public Ticket reopenMyTicket(
+            Integer ticketId, String employeeEmail) {
+
         Ticket ticket = getEmployeeTicket(ticketId, employeeEmail);
 
         if (ticket.getStatus() != TicketStatus.CLOSED) {
@@ -257,42 +319,23 @@ public class TicketServiceImpl implements TicketService {
                     "Only CLOSED tickets can be reopened by employees");
         }
 
+        TicketStatus oldStatus = ticket.getStatus();
         ticket.setStatus(TicketStatus.REOPENED);
         ticket.setResolvedAt(null);
 
-        return ticketRepository.save(ticket);
+        Ticket savedTicket = ticketRepository.save(ticket);
+        recordStatusChange(savedTicket, oldStatus, employeeEmail);
+
+        return savedTicket;
+    }
+    @Override
+    public Ticket assignTicket(Integer ticketId, Integer agentId) {
+        return null;
     }
 
-
-
-    private User getEmployee(String email) {
-        User employee = userRepository.findByEmail(email)
-                .orElseThrow(() ->
-                        new AccessDeniedException("Employee not found"));
-
-        if (employee.getRole() != Role.EMPLOYEE) {
-            throw new AccessDeniedException(
-                    "Only employees can perform this action");
-        }
-
-        if (!employee.isAccount_status()) {
-            throw new AccessDeniedException(
-                    "Inactive employees cannot perform this action");
-        }
-
-        return employee;
+    @Override
+    public Ticket updateTicketStatus(
+            Integer ticketId, TicketStatus newStatus) {
+        return null;
     }
-
-    private Ticket getEmployeeTicket(
-            Integer ticketId,
-            String employeeEmail) {
-
-        User employee = getEmployee(employeeEmail);
-
-        return ticketRepository.findByIdAndRequester(ticketId, employee)
-                .orElseThrow(() ->
-                        new TicketNotFoundException(
-                                "Ticket not found or does not belong to you"));
-    }
-
 }
