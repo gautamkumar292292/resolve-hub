@@ -11,10 +11,8 @@ import lombok.RequiredArgsConstructor;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -43,14 +41,19 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/me")
+    public ResponseEntity<AuthResponse> getCurrentUser(
+            Authentication authentication) {
+
+        AuthResponse response =
+                authService.getCurrentUser(authentication.getName());
+
+        return ResponseEntity.ok(response);
+    }
+
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(
             Authentication authentication) {
-
-        if (authentication == null
-                || !authentication.isAuthenticated()) {
-            return ResponseEntity.status(401).build();
-        }
 
         authService.logout(authentication.getName());
 
