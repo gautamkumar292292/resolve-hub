@@ -85,7 +85,10 @@ public interface TicketRepository extends JpaRepository<Ticket, Integer> {
     Optional<Ticket> findByIdForUpdate(
             @Param("ticketId") Integer ticketId
     );
+    Optional<Ticket> findByIdAndRequester(
+            Integer id,
+            User requester
+    );
 
-    
 
 }

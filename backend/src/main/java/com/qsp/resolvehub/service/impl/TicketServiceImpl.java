@@ -232,4 +232,67 @@ public class TicketServiceImpl implements TicketService {
 
         return ticketRepository.save(ticket);
     }
+
+
+    @Override
+    public Ticket closeMyTicket(Integer ticketId, String employeeEmail) {
+        Ticket ticket = getEmployeeTicket(ticketId, employeeEmail);
+
+        if (ticket.getStatus() != TicketStatus.RESOLVED) {
+            throw new IllegalStateException(
+                    "Only RESOLVED tickets can be closed by employees");
+        }
+
+        ticket.setStatus(TicketStatus.CLOSED);
+
+        return ticketRepository.save(ticket);
+    }
+
+    @Override
+    public Ticket reopenMyTicket(Integer ticketId, String employeeEmail) {
+        Ticket ticket = getEmployeeTicket(ticketId, employeeEmail);
+
+        if (ticket.getStatus() != TicketStatus.CLOSED) {
+            throw new IllegalStateException(
+                    "Only CLOSED tickets can be reopened by employees");
+        }
+
+        ticket.setStatus(TicketStatus.REOPENED);
+        ticket.setResolvedAt(null);
+
+        return ticketRepository.save(ticket);
+    }
+
+
+
+    private User getEmployee(String email) {
+        User employee = userRepository.findByEmail(email)
+                .orElseThrow(() ->
+                        new AccessDeniedException("Employee not found"));
+
+        if (employee.getRole() != Role.EMPLOYEE) {
+            throw new AccessDeniedException(
+                    "Only employees can perform this action");
+        }
+
+        if (!employee.isAccount_status()) {
+            throw new AccessDeniedException(
+                    "Inactive employees cannot perform this action");
+        }
+
+        return employee;
+    }
+
+    private Ticket getEmployeeTicket(
+            Integer ticketId,
+            String employeeEmail) {
+
+        User employee = getEmployee(employeeEmail);
+
+        return ticketRepository.findByIdAndRequester(ticketId, employee)
+                .orElseThrow(() ->
+                        new TicketNotFoundException(
+                                "Ticket not found or does not belong to you"));
+    }
+
 }

@@ -53,4 +53,8 @@ public interface TicketService {
             Integer ticketId,
             TicketStatus newStatus
     );
+
+    Ticket closeMyTicket(Integer ticketId, String employeeEmail);
+
+    Ticket reopenMyTicket(Integer ticketId, String employeeEmail);
 }
