@@ -153,4 +153,19 @@ public class AuthServiceImpl implements AuthService {
 
         return email.trim().toLowerCase(Locale.ROOT);
     }
+
+
+    @Override
+    @Transactional(readOnly = true)
+    public UserResponse getCurrentUser(String email) {
+
+        User user = userRepository
+                .findByEmail(normalizeEmail(email))
+                .orElseThrow(() ->
+                        new UsernameNotFoundException("User not found")
+                );
+
+        return UserResponse.from(user);
+    }
+
 }

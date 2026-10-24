@@ -4,6 +4,7 @@ import com.qsp.resolvehub.dto.request.LoginRequest;
 import com.qsp.resolvehub.dto.request.RegisterRequest;
 import com.qsp.resolvehub.dto.response.AuthResponse;
 import com.qsp.resolvehub.dto.response.RegisterResponse;
+import com.qsp.resolvehub.dto.response.UserResponse;
 import com.qsp.resolvehub.service.AuthService;
 
 import jakarta.validation.Valid;
@@ -41,15 +42,17 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
+
     @GetMapping("/me")
-    public ResponseEntity<AuthResponse> getCurrentUser(
+    public ResponseEntity<UserResponse> getCurrentUser(
             Authentication authentication) {
 
-        AuthResponse response =
+        UserResponse response =
                 authService.getCurrentUser(authentication.getName());
 
         return ResponseEntity.ok(response);
     }
+
 
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(

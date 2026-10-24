@@ -1,9 +1,11 @@
+
 package com.qsp.resolvehub.service;
 
 import com.qsp.resolvehub.dto.request.LoginRequest;
 import com.qsp.resolvehub.dto.request.RegisterRequest;
 import com.qsp.resolvehub.dto.response.AuthResponse;
 import com.qsp.resolvehub.dto.response.RegisterResponse;
+import com.qsp.resolvehub.dto.response.UserResponse;
 
 public interface AuthService {
 
@@ -13,5 +15,5 @@ public interface AuthService {
 
     void logout(String name);
 
-    AuthResponse getCurrentUser(String email);
+    UserResponse getCurrentUser(String email);
 }
