@@ -1,6 +1,7 @@
-
 package com.qsp.resolvehub.controller;
 
+import com.qsp.resolvehub.dto.request.CategoryRequest;
+import com.qsp.resolvehub.dto.response.CategoryResponse;
 import com.qsp.resolvehub.entity.Category;
 import com.qsp.resolvehub.service.CategoryService;
 
@@ -23,35 +24,47 @@ public class CategoryController {
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Category> createCategory(
-            @Valid @RequestBody Category category) {
+    public ResponseEntity<CategoryResponse> createCategory(
+            @Valid @RequestBody CategoryRequest request) {
+
+        Category category = categoryService.createCategory(request);
 
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(categoryService.createCategory(category));
+                .body(CategoryResponse.from(category));
     }
 
     @GetMapping
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<List<Category>> getAllCategories() {
-        return ResponseEntity.ok(categoryService.getAllCategories());
+    public ResponseEntity<List<CategoryResponse>> getAllCategories() {
+
+        List<CategoryResponse> categories = categoryService
+                .getAllCategories()
+                .stream()
+                .map(CategoryResponse::from)
+                .toList();
+
+        return ResponseEntity.ok(categories);
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<Category> getCategoryById(
+    public ResponseEntity<CategoryResponse> getCategoryById(
             @PathVariable Integer id) {
 
-        return ResponseEntity.ok(categoryService.getCategoryById(id));
+        Category category = categoryService.getCategoryById(id);
+
+        return ResponseEntity.ok(CategoryResponse.from(category));
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Category> updateCategory(
+    public ResponseEntity<CategoryResponse> updateCategory(
             @PathVariable Integer id,
-            @Valid @RequestBody Category category) {
+            @Valid @RequestBody CategoryRequest request) {
 
-        return ResponseEntity.ok(
-                categoryService.updateCategory(id, category));
+        Category category = categoryService.updateCategory(id, request);
+
+        return ResponseEntity.ok(CategoryResponse.from(category));
     }
 
     @DeleteMapping("/{id}")
@@ -60,6 +73,7 @@ public class CategoryController {
             @PathVariable Integer id) {
 
         categoryService.deleteCategory(id);
+
         return ResponseEntity.noContent().build();
     }
 }

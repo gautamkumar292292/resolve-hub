@@ -1,6 +1,7 @@
 
 package com.qsp.resolvehub.service.impl;
 
+import com.qsp.resolvehub.dto.request.CategoryRequest;
 import com.qsp.resolvehub.entity.Category;
 import com.qsp.resolvehub.exception.ResourceNotFoundException;
 import com.qsp.resolvehub.repository.CategoryRepository;
@@ -22,8 +23,18 @@ public class CategoryServiceImpl implements CategoryService {
 
     private final CategoryRepository categoryRepository;
 
+
     @Override
-    public Category createCategory(Category category) {
+    public Category createCategory(CategoryRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException(
+                    "Category request cannot be null");
+        }
+
+        Category category = new Category();
+        category.setName(request.name());
+        category.setDescription(request.description());
+
         validateCategory(category);
 
         String name = category.getName().trim();
@@ -39,6 +50,7 @@ public class CategoryServiceImpl implements CategoryService {
 
         return categoryRepository.save(category);
     }
+
 
     @Override
     @Transactional(readOnly = true)
@@ -66,13 +78,26 @@ public class CategoryServiceImpl implements CategoryService {
     @Override
     public Category updateCategory(
             Integer id,
-            Category updatedCategory) {
+            CategoryRequest request) {
+
+        if (request == null) {
+            throw new IllegalArgumentException(
+                    "Category request cannot be null");
+        }
+
+        Category updatedCategory = new Category();
+        updatedCategory.setName(request.name());
+        updatedCategory.setDescription(request.description());
 
         validateCategory(updatedCategory);
 
         Category existing = categoryRepository.findById(id)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Category not found"));
+
+        if (!existing.isActive()) {
+            throw new ResourceNotFoundException("Category not found");
+        }
 
         String name = updatedCategory.getName().trim();
 
@@ -86,10 +111,10 @@ public class CategoryServiceImpl implements CategoryService {
 
         existing.setName(name);
         existing.setDescription(updatedCategory.getDescription());
-        existing.setActive(updatedCategory.isActive());
 
         return categoryRepository.save(existing);
     }
+
 
     @Override
     public void deleteCategory(Integer id) {

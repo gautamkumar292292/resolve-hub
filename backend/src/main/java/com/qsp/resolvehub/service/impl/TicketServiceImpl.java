@@ -502,7 +502,7 @@ public class TicketServiceImpl implements TicketService {
 
         ticketRepository.delete(ticket);
     }
-    
+
     @Override
     public Ticket reopenMyTicket(Integer ticketId, String employeeEmail) {
         validateTicketId(ticketId);
@@ -703,6 +703,31 @@ public class TicketServiceImpl implements TicketService {
                                 "Ticket not found with number: " + ticketNumber));
     }
 
+    
 
+    @Override
+    public Ticket unassignTicket(Integer ticketId, String adminEmail) {
+        validateTicketId(ticketId);
+
+        Ticket ticket = getTicketOrThrow(ticketId);
+
+        if (ticket.getStatus() != TicketStatus.ASSIGNED) {
+            throw new IllegalStateException(
+                    "Only ASSIGNED tickets can be unassigned"
+            );
+        }
+
+        TicketStatus oldStatus = ticket.getStatus();
+
+        ticket.setAssignedTo(null);
+        ticket.setStatus(TicketStatus.OPEN);
+        ticket.setResolvedAt(null);
+
+        Ticket savedTicket = ticketRepository.save(ticket);
+
+        recordStatusChange(savedTicket, oldStatus, adminEmail);
+
+        return savedTicket;
+    }
 
 }

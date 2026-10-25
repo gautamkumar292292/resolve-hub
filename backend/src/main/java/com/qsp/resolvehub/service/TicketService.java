@@ -41,12 +41,6 @@ public interface TicketService {
             String changedByEmail
     );
 
-    Ticket assignTicket(
-            Integer ticketId,
-            Integer agentId,
-            String adminEmail
-    );
-
     // Employee operations
     Ticket createTicket(
             TicketRequest request,
@@ -119,4 +113,7 @@ public interface TicketService {
 
     // Ticket lookup
     Ticket getTicketByTicketNumber(String ticketNumber);
-}
+
+    Ticket assignTicket(Integer ticketId, Integer agentId, String adminEmail);
+
+    Ticket unassignTicket(Integer ticketId, String adminEmail);}

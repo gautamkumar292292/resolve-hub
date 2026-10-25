@@ -207,4 +207,18 @@ public class AdminController {
 
         return ResponseEntity.ok(TicketResponse.from(ticket));
     }
+
+    @PatchMapping("/{ticketId}/unassign")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<TicketResponse> unassignTicket(
+            @PathVariable Integer ticketId,
+            Authentication authentication) {
+
+        Ticket ticket = ticketService.unassignTicket(
+                ticketId,
+                authentication.getName()
+        );
+
+        return ResponseEntity.ok(TicketResponse.from(ticket));
+    }
 }
