@@ -1,4 +1,3 @@
-
 package com.qsp.resolvehub.dto.response;
 
 import com.qsp.resolvehub.entity.Role;

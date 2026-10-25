@@ -25,6 +25,7 @@ public interface UserRepository extends JpaRepository<User, Integer> {
 
     boolean existsByEmailAndIdNot(String email, Integer id);
 
+
     @Modifying(
             flushAutomatically = true,
             clearAutomatically = true
@@ -38,17 +39,14 @@ public interface UserRepository extends JpaRepository<User, Integer> {
     int incrementTokenVersion(@Param("userId") Integer userId);
 
     long countByRoles(Role roles);
-
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
-       SELECT u FROM User u
-       WHERE u.roles = :role
-       AND u.account_status = true
-       ORDER BY u.id
-       """)
+        SELECT u FROM User u
+        WHERE u.roles = :role
+        AND u.account_status = true
+        ORDER BY u.id
+        """)
     List<User> findActiveAgentsForUpdate(
             @Param("role") Role role
     );
-
-    
 }

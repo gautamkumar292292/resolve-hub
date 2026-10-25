@@ -2,8 +2,10 @@
 package com.qsp.resolvehub.service;
 
 import com.qsp.resolvehub.dto.request.TicketRequest;
+import com.qsp.resolvehub.dto.response.TicketResponse;
 import com.qsp.resolvehub.entity.Ticket;
 import com.qsp.resolvehub.entity.TicketStatus;
+import jakarta.annotation.Priority;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -84,5 +86,12 @@ public interface TicketService {
     Ticket getTicketForCurrentUser(
             Integer ticketId,
             String currentUserEmail
+    );
+
+    Page<TicketResponse> searchTickets(
+            TicketStatus status,
+            Priority priority,
+            String keyword,
+            Pageable pageable
     );
 }

@@ -6,11 +6,13 @@ import com.qsp.resolvehub.entity.Ticket;
 import com.qsp.resolvehub.entity.TicketStatus;
 import com.qsp.resolvehub.service.TicketService;
 
+import jakarta.annotation.Priority;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -136,4 +138,24 @@ public class TicketController {
 
         return ResponseEntity.ok(TicketResponse.from(ticket));
     }
+
+
+    @GetMapping("/search")
+    @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")
+    public ResponseEntity<Page<TicketResponse>> searchTickets(
+            @RequestParam(required = false) TicketStatus status,
+            @RequestParam(required = false) Priority priority,
+            @RequestParam(required = false) String keyword,
+            @PageableDefault(
+                    size = 10,
+                    sort = "createdAt",
+                    direction = Sort.Direction.DESC
+            ) Pageable pageable) {
+
+        return ResponseEntity.ok(
+                ticketService.searchTickets(
+                        status, priority, keyword, pageable)
+        );
+    }
+
 }

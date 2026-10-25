@@ -29,7 +29,7 @@ public class AutoAssignmentServiceImpl implements AutoAssignmentService {
 
     @Override
     @Transactional
-    public Ticket assignToLeastBusyAgent(Integer ticketId, String adminEmail){
+    public Ticket assignToLeastBusyAgent(Integer ticketId, String adminEmail) {
 
         // Fetch and lock the ticket.
         Ticket ticket = ticketRepository.findByIdForUpdate(ticketId)
@@ -48,10 +48,9 @@ public class AutoAssignmentServiceImpl implements AutoAssignmentService {
         // Capture the previous status for audit history.
         TicketStatus oldStatus = ticket.getStatus();
 
-        // Retrieve active agents.
+        // Retrieve active agents who have the AGENT role.
         List<User> agents =
                 userRepository.findActiveAgentsForUpdate(Role.AGENT);
-
         if (agents.isEmpty()) {
             throw new IllegalStateException(
                     "No active agents are available"

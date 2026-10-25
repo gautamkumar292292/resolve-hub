@@ -1,6 +1,7 @@
 package com.qsp.resolvehub.service.impl;
 
 import com.qsp.resolvehub.dto.request.TicketRequest;
+import com.qsp.resolvehub.dto.response.TicketResponse;
 import com.qsp.resolvehub.entity.Category;
 import com.qsp.resolvehub.entity.Role;
 import com.qsp.resolvehub.entity.Ticket;
@@ -14,9 +15,12 @@ import com.qsp.resolvehub.repository.TicketRepository;
 import com.qsp.resolvehub.repository.UserRepository;
 import com.qsp.resolvehub.service.TicketHistoryService;
 import com.qsp.resolvehub.service.TicketService;
+import com.qsp.resolvehub.specification.TicketSpecification;
+import jakarta.annotation.Priority;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -505,4 +509,24 @@ public class TicketServiceImpl implements TicketService {
                                     "Ticket not found"));
         };
     }
+
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<TicketResponse> searchTickets(
+            TicketStatus status,
+            Priority priority,
+            String keyword,
+            Pageable pageable) {
+
+        return ticketRepository.findAll(
+                Specification.where(
+                                TicketSpecification.hasStatus(status))
+                        .and(TicketSpecification.hasPriority(priority))
+                        .and(TicketSpecification.titleContains(keyword))
+                        .and(TicketSpecification.descriptionContains(keyword)),
+                pageable
+        ).map(TicketResponse::from);
+    }
+
 }
