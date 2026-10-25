@@ -1,17 +1,14 @@
-
 package com.qsp.resolvehub.controller;
 
 import com.qsp.resolvehub.dto.request.UpdateRoleRequest;
 import com.qsp.resolvehub.dto.request.UpdateTicketStatusRequest;
 import com.qsp.resolvehub.dto.request.UpdateUserRequest;
-import com.qsp.resolvehub.dto.response.AdminDashboardResponse;
 import com.qsp.resolvehub.dto.response.AgentWorkloadResponse;
 import com.qsp.resolvehub.dto.response.TicketResponse;
 import com.qsp.resolvehub.dto.response.UserResponse;
 import com.qsp.resolvehub.entity.Ticket;
 import com.qsp.resolvehub.entity.TicketStatus;
 import com.qsp.resolvehub.entity.User;
-import com.qsp.resolvehub.service.AdminDashboardService;
 import com.qsp.resolvehub.service.AgentWorkloadService;
 import com.qsp.resolvehub.service.AutoAssignmentService;
 import com.qsp.resolvehub.service.TicketService;
@@ -38,13 +35,11 @@ import java.util.List;
 public class AdminController {
 
     private final UserService userService;
-    private final AdminDashboardService adminDashboardService;
     private final TicketService ticketService;
     private final AgentWorkloadService agentWorkloadService;
     private final AutoAssignmentService autoAssignmentService;
 
-    // Public endpoint: Get all admins without authentication.
-    // SecurityConfig must explicitly permit this route.
+    // Get all admins publicly.
     @GetMapping("/public/admins")
     @PreAuthorize("permitAll()")
     public ResponseEntity<List<UserResponse>> getAllAdmins() {
@@ -55,60 +50,63 @@ public class AdminController {
     @GetMapping("/me")
     public ResponseEntity<UserResponse> getCurrentAdmin(
             @AuthenticationPrincipal User user) {
+
         return ResponseEntity.ok(UserResponse.from(user));
     }
 
-    // Admin user management.
+    // Get all users.
     @GetMapping("/users")
     public ResponseEntity<List<UserResponse>> getAllUsers() {
         return ResponseEntity.ok(userService.getAllUsers());
     }
 
+    // Get a user by ID.
     @GetMapping("/users/{id}")
     public ResponseEntity<UserResponse> getUserById(
             @PathVariable Integer id) {
+
         return ResponseEntity.ok(userService.getUserById(id));
     }
 
+    // Update a user's details.
     @PutMapping("/users/{id}")
     public ResponseEntity<UserResponse> updateUser(
             @PathVariable Integer id,
             @Valid @RequestBody UpdateUserRequest request) {
+
         return ResponseEntity.ok(
                 userService.adminUpdateUser(id, request));
     }
 
+    // Update a user's role.
     @PutMapping("/users/{id}/roles")
     public ResponseEntity<UserResponse> updateUserRole(
             @PathVariable Integer id,
             @Valid @RequestBody UpdateRoleRequest request) {
+
         return ResponseEntity.ok(
                 userService.updateUserRole(id, request));
     }
 
+    // Activate a user.
     @PatchMapping("/users/{id}/activate")
     public ResponseEntity<UserResponse> activateUser(
             @PathVariable Integer id) {
+
         return ResponseEntity.ok(
                 userService.setUserStatus(id, true));
     }
 
+    // Deactivate a user.
     @PatchMapping("/users/{id}/deactivate")
     public ResponseEntity<UserResponse> deactivateUser(
             @PathVariable Integer id) {
+
         return ResponseEntity.ok(
                 userService.setUserStatus(id, false));
     }
 
-    // Admin dashboard remains admin-only.
-    // This mapping is handled separately below using an explicit route.
-    @GetMapping("/dashboard")
-    public ResponseEntity<AdminDashboardResponse> getDashboard() {
-        return ResponseEntity.ok(
-                adminDashboardService.getDashboard());
-    }
-
-    // List tickets.
+    // List tickets with optional status filtering and pagination.
     @GetMapping("/tickets")
     public ResponseEntity<Page<TicketResponse>> getAllTickets(
             @RequestParam(required = false) TicketStatus status,
@@ -129,14 +127,17 @@ public class AdminController {
         return ResponseEntity.ok(tickets);
     }
 
+    // Get a ticket by ID.
     @GetMapping("/tickets/{ticketId}")
     public ResponseEntity<TicketResponse> getTicketById(
             @PathVariable Integer ticketId) {
+
         return ResponseEntity.ok(
                 TicketResponse.from(
                         ticketService.getTicketById(ticketId)));
     }
 
+    // Update ticket status.
     @PatchMapping("/tickets/{ticketId}/status")
     public ResponseEntity<TicketResponse> updateTicketStatus(
             @PathVariable Integer ticketId,
@@ -151,20 +152,62 @@ public class AdminController {
         return ResponseEntity.ok(TicketResponse.from(ticket));
     }
 
-    // Agent workload.
+    // Manually assign a ticket to an agent.
+    @PostMapping("/tickets/{ticketId}/assign")
+    public ResponseEntity<TicketResponse> assignTicket(
+            @PathVariable Integer ticketId,
+            @RequestParam Integer agentId,
+            @AuthenticationPrincipal User admin) {
+
+        Ticket ticket = ticketService.assignTicket(
+                ticketId,
+                agentId,
+                admin.getEmail());
+
+        return ResponseEntity.ok(TicketResponse.from(ticket));
+    }
+
+    // Remove the current agent assignment from a ticket.
+    @PostMapping("/tickets/{ticketId}/unassign")
+    public ResponseEntity<TicketResponse> unassignTicket(
+            @PathVariable Integer ticketId,
+            @AuthenticationPrincipal User admin) {
+
+        Ticket ticket = ticketService.unassignTicket(
+                ticketId,
+                admin.getEmail());
+
+        return ResponseEntity.ok(TicketResponse.from(ticket));
+    }
+
+    // Get agent workload information.
     @GetMapping("/agents/workload")
     public ResponseEntity<List<AgentWorkloadResponse>> getAgentWorkloads() {
+
         return ResponseEntity.ok(
                 agentWorkloadService.getAgentWorkloads());
     }
 
-    // Automatic assignment.
+    // Automatically assign a ticket to the least busy eligible agent.
     @PostMapping("/tickets/{ticketId}/auto-assign")
     public ResponseEntity<TicketResponse> autoAssignTicket(
             @PathVariable Integer ticketId,
             Authentication authentication) {
 
         Ticket ticket = autoAssignmentService.assignToLeastBusyAgent(
+                ticketId,
+                authentication.getName());
+
+        return ResponseEntity.ok(TicketResponse.from(ticket));
+    }
+
+    @PostMapping("/tickets/{ticketId}/close")
+    @PreAuthorize("hasRole('EMPLOYEE')")
+    public ResponseEntity<TicketResponse> closeMyTicket(
+            @PathVariable Integer ticketId,
+            Authentication authentication) {
+
+        Ticket ticket = ticketService.closeMyTicket(
                 ticketId,
                 authentication.getName());
 

@@ -428,11 +428,15 @@ public class TicketServiceImpl implements TicketService {
      * OPEN/REOPENED -> ASSIGNED must go through assignTicket().
      * ASSIGNED -> OPEN must go through unassignTicket().
      */
+
     @Override
+    @Transactional
     public Ticket updateTicketStatus(
             Integer ticketId,
             TicketStatus newStatus,
             String changedByEmail) {
+
+        validateTicketId(ticketId);
 
         if (newStatus == null) {
             throw new IllegalArgumentException(
@@ -488,6 +492,7 @@ public class TicketServiceImpl implements TicketService {
 
         return saved;
     }
+
 
     // -------------------- Employee operations --------------------
 

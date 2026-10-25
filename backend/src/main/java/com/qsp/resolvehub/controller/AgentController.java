@@ -2,13 +2,11 @@
 package com.qsp.resolvehub.controller;
 
 import com.qsp.resolvehub.dto.request.CommentRequest;
-import com.qsp.resolvehub.dto.response.AgentDashboardResponse;
 import com.qsp.resolvehub.dto.response.CommentResponse;
 import com.qsp.resolvehub.dto.response.TicketResponse;
 import com.qsp.resolvehub.entity.Comment;
 import com.qsp.resolvehub.entity.Ticket;
 import com.qsp.resolvehub.entity.TicketStatus;
-import com.qsp.resolvehub.service.AgentDashboardService;
 import com.qsp.resolvehub.service.CommentService;
 import com.qsp.resolvehub.service.TicketService;
 
@@ -17,8 +15,8 @@ import lombok.RequiredArgsConstructor;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -32,9 +30,8 @@ public class AgentController {
 
     private final TicketService ticketService;
     private final CommentService commentService;
-    private final AgentDashboardService agentDashboardService;
 
-    // Get tickets assigned to the authenticated agent.
+    // AGENT: Get tickets assigned to the authenticated agent.
     @GetMapping("/tickets/assigned")
     @PreAuthorize("hasRole('AGENT')")
     public ResponseEntity<Page<TicketResponse>> getMyTickets(
@@ -44,7 +41,8 @@ public class AgentController {
                     size = 10,
                     sort = "createdAt",
                     direction = Sort.Direction.DESC
-            ) Pageable pageable) {
+            )
+            Pageable pageable) {
 
         String agentEmail = authentication.getName();
 
@@ -63,7 +61,7 @@ public class AgentController {
         return ResponseEntity.ok(tickets);
     }
 
-    // Get one ticket assigned to this agent.
+    // AGENT: Get one ticket assigned to this agent.
     @GetMapping("/agent/tickets/{id}")
     @PreAuthorize("hasRole('AGENT')")
     public ResponseEntity<TicketResponse> getMyTicketById(
@@ -71,38 +69,46 @@ public class AgentController {
             Authentication authentication) {
 
         Ticket ticket = ticketService.getMyTicketById(
-                id, authentication.getName());
+                id,
+                authentication.getName()
+        );
 
         return ResponseEntity.ok(TicketResponse.from(ticket));
     }
 
-    // Start an assigned ticket.
-    @PatchMapping("/agent/tickets/{id}/start")
+    // AGENT: Start an assigned ticket.
+    // POST /api/tickets/{id}/start
+    @PostMapping("/tickets/{id}/start")
     @PreAuthorize("hasRole('AGENT')")
     public ResponseEntity<TicketResponse> startTicket(
             @PathVariable Integer id,
             Authentication authentication) {
 
         Ticket ticket = ticketService.startTicket(
-                id, authentication.getName());
+                id,
+                authentication.getName()
+        );
 
         return ResponseEntity.ok(TicketResponse.from(ticket));
     }
 
-    // Resolve an in-progress ticket.
-    @PatchMapping("/agent/tickets/{id}/resolve")
+    // AGENT: Resolve an in-progress ticket assigned to this agent.
+    // POST /api/tickets/{id}/resolve
+    @PostMapping("/tickets/{id}/resolve")
     @PreAuthorize("hasRole('AGENT')")
     public ResponseEntity<TicketResponse> resolveTicket(
             @PathVariable Integer id,
             Authentication authentication) {
 
         Ticket ticket = ticketService.resolveTicket(
-                id, authentication.getName());
+                id,
+                authentication.getName()
+        );
 
         return ResponseEntity.ok(TicketResponse.from(ticket));
     }
 
-    // Get comments for an accessible ticket.
+    // AGENT: Get comments for a ticket accessible to this agent.
     @GetMapping("/agent/tickets/{id}/comments")
     @PreAuthorize("hasRole('AGENT')")
     public ResponseEntity<Page<CommentResponse>> getTicketComments(
@@ -112,17 +118,21 @@ public class AgentController {
                     size = 10,
                     sort = "createdAt",
                     direction = Sort.Direction.DESC
-            ) Pageable pageable) {
+            )
+            Pageable pageable) {
 
         Page<CommentResponse> comments = commentService
                 .getTicketComments(
-                        id, authentication.getName(), pageable)
+                        id,
+                        authentication.getName(),
+                        pageable
+                )
                 .map(CommentResponse::from);
 
         return ResponseEntity.ok(comments);
     }
 
-    // Add a comment.
+    // AGENT: Add a comment to a ticket.
     @PostMapping("/agent/tickets/{id}/comments")
     @PreAuthorize("hasRole('AGENT')")
     public ResponseEntity<CommentResponse> addComment(
@@ -138,17 +148,5 @@ public class AgentController {
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(CommentResponse.from(comment));
-    }
-
-    // Agent dashboard.
-    @GetMapping("/dashboard/agent")
-    @PreAuthorize("hasRole('AGENT')")
-    public ResponseEntity<AgentDashboardResponse> getDashboard(
-            Authentication authentication) {
-
-        return ResponseEntity.ok(
-                agentDashboardService.getDashboard(
-                        authentication.getName())
-        );
     }
 }

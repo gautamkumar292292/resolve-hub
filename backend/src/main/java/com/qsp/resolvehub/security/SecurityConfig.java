@@ -1,4 +1,3 @@
-
 package com.qsp.resolvehub.security;
 
 import jakarta.servlet.http.HttpServletResponse;
@@ -6,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -65,9 +65,8 @@ public class SecurityConfig {
                         )
                 )
 
-
-
                 .authorizeHttpRequests(auth -> auth
+
                         // Public authentication endpoints
                         .requestMatchers(
                                 "/api/auth/register",
@@ -82,29 +81,45 @@ public class SecurityConfig {
                                 "/api/categories/**"
                         ).authenticated()
 
+                        // Employee can update their own profile
+                        .requestMatchers(
+                                HttpMethod.PUT,
+                                "/api/users/me"
+                        ).hasRole("EMPLOYEE")
+
                         // Admin-only user management
-                        .requestMatchers("/api/users/**").hasRole("ADMIN")
+                        .requestMatchers(
+                                "/api/users/**"
+                        ).hasRole("ADMIN")
 
                         // Role-specific dashboards
-                        .requestMatchers("/api/dashboard/admin").hasRole("ADMIN")
-                        .requestMatchers("/api/dashboard/agent").hasRole("AGENT")
-                        .requestMatchers("/api/dashboard/employee").hasRole("EMPLOYEE")
+                        .requestMatchers("/api/dashboard/admin")
+                        .hasRole("ADMIN")
+
+                        .requestMatchers("/api/dashboard/agent")
+                        .hasRole("AGENT")
+
+                        .requestMatchers("/api/dashboard/employee")
+                        .hasRole("EMPLOYEE")
 
                         // Admin-specific routes
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/admin/**")
+                        .hasRole("ADMIN")
 
-                        // Ticket endpoints: enforce role-specific permissions
-                        // in controller methods using @PreAuthorize.
-                        .requestMatchers("/api/tickets/**").authenticated()
+                        // Ticket endpoint permissions are also enforced
+                        // through controller-level @PreAuthorize rules
+                        .requestMatchers("/api/tickets/**")
+                        .authenticated()
 
                         // Existing role-specific routes
-                        .requestMatchers("/api/employee/**").hasRole("EMPLOYEE")
-                        .requestMatchers("/api/agent/**").hasRole("AGENT")
+                        .requestMatchers("/api/employee/**")
+                        .hasRole("EMPLOYEE")
+
+                        .requestMatchers("/api/agent/**")
+                        .hasRole("AGENT")
 
                         .anyRequest().authenticated()
                 )
-
-
 
                 .addFilterBefore(
                         jwtFilter,

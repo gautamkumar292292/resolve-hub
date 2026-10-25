@@ -81,5 +81,11 @@ public interface TicketRepository
     long countByAssignedTo(User assignedTo);
 
     Optional<Ticket> findByTicketNumber(String ticketNumber);
+    // Employee dashboard counts
+    long countByRequester(User requester);
 
+    long countByRequesterAndStatus(
+            User requester,
+            TicketStatus status
+    );
 }
