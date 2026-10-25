@@ -1,10 +1,10 @@
+
 package com.qsp.resolvehub.security;
 
 import com.qsp.resolvehub.entity.User;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 
@@ -15,6 +15,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
+
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -32,8 +33,24 @@ public class JwtService {
             @Value("${jwt.expiration-ms:86400000}")
             long expirationMillis) {
 
-        byte[] keyBytes = Decoders.BASE64.decode(secret);
+        if (secret == null || secret.isBlank()) {
+            throw new IllegalArgumentException(
+                    "JWT secret must not be empty"
+            );
+        }
 
+        byte[] keyBytes;
+
+        try {
+            keyBytes = Decoders.BASE64.decode(secret);
+        } catch (RuntimeException ex) {
+            throw new IllegalArgumentException(
+                    "JWT secret must be valid Base64",
+                    ex
+            );
+        }
+
+        // HS256 requires a key of at least 256 bits (32 bytes).
         if (keyBytes.length < 32) {
             throw new IllegalArgumentException(
                     "JWT secret must decode to at least 32 bytes"
@@ -50,39 +67,53 @@ public class JwtService {
         this.expirationMillis = expirationMillis;
     }
 
-    // Generate a JWT for the authenticated user.
+    /**
+     * Generates a JWT for a user.
+     */
     public String generateToken(User user) {
 
-        Map<String, Object> claims = new HashMap<>();
+        if (user == null) {
+            throw new IllegalArgumentException(
+                    "User must not be null"
+            );
+        }
 
+        Map<String, Object> claims = new HashMap<>();
         claims.put("role", user.getRoles().name());
         claims.put("tokenVersion", user.getTokenVersion());
 
-        Date now = new Date();
-        Date expiry = new Date(
-                now.getTime() + expirationMillis
+        Date issuedAt = new Date();
+        Date expiration = new Date(
+                issuedAt.getTime() + expirationMillis
         );
 
         return Jwts.builder()
                 .setClaims(claims)
                 .setSubject(user.getEmail())
-                .setIssuedAt(now)
-                .setExpiration(expiry)
-                .signWith(signingKey, SignatureAlgorithm.HS256)
+                .setIssuedAt(issuedAt)
+                .setExpiration(expiration)
+                .signWith(signingKey)
                 .compact();
     }
 
-    // Extract the email from a JWT.
+    /**
+     * Extracts the username/email from a JWT.
+     * Parsing also verifies the token signature and expiration.
+     */
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
     }
 
-    // Extract the expiration date from a JWT.
+    /**
+     * Extracts the expiration date from a JWT.
+     */
     public Date extractExpiration(String token) {
         return extractClaim(token, Claims::getExpiration);
     }
 
-    // Extract a specific claim.
+    /**
+     * Extracts an individual claim.
+     */
     public <T> T extractClaim(
             String token,
             Function<Claims, T> resolver) {
@@ -91,8 +122,16 @@ public class JwtService {
         return resolver.apply(claims);
     }
 
-    // Parse and verify the JWT signature.
+    /**
+     * Parses a signed JWT and validates its signature and expiration.
+     */
     private Claims extractAllClaims(String token) {
+
+        if (token == null || token.isBlank()) {
+            throw new IllegalArgumentException(
+                    "JWT token must not be empty"
+            );
+        }
 
         return Jwts.parserBuilder()
                 .setSigningKey(signingKey)
@@ -101,62 +140,72 @@ public class JwtService {
                 .getBody();
     }
 
-    // Validate the JWT against the current database user.
+    /**
+     * Validates a JWT against the current database user.
+     */
     public boolean isTokenValid(
             String token,
             UserDetails userDetails) {
 
-        Claims claims = extractAllClaims(token);
-
-        String username = claims.getSubject();
-        Date expiration = claims.getExpiration();
-        Object versionClaim = claims.get("tokenVersion");
-
-        if (!(userDetails instanceof User user)) {
-            log.warn(
-                    "JWT validation failed: unexpected UserDetails type"
-            );
+        if (userDetails == null) {
             return false;
         }
 
-        if (!(versionClaim instanceof Number version)) {
-            log.warn(
-                    "JWT validation failed: tokenVersion missing or invalid"
+        try {
+            Claims claims = extractAllClaims(token);
+
+            String username = claims.getSubject();
+            Date expiration = claims.getExpiration();
+            Object versionClaim = claims.get("tokenVersion");
+
+            if (!(userDetails instanceof User user)) {
+                log.warn(
+                        "JWT validation failed: unexpected UserDetails type"
+                );
+                return false;
+            }
+
+            if (!(versionClaim instanceof Number version)) {
+                log.debug(
+                        "JWT validation failed: missing tokenVersion"
+                );
+                return false;
+            }
+
+            boolean usernameMatches =
+                    username != null
+                            && username.equalsIgnoreCase(user.getUsername());
+
+            boolean notExpired =
+                    expiration != null
+                            && expiration.after(new Date());
+
+            boolean accountEnabled = user.isEnabled();
+
+            boolean versionMatches =
+                    version.longValue() == user.getTokenVersion();
+
+            return usernameMatches
+                    && notExpired
+                    && accountEnabled
+                    && versionMatches;
+
+        } catch (io.jsonwebtoken.JwtException
+                 | IllegalArgumentException ex) {
+
+            // Do not log the JWT or other sensitive token data.
+            log.debug(
+                    "JWT validation failed: {}",
+                    ex.getClass().getSimpleName()
             );
+
             return false;
         }
-
-        boolean usernameMatches =
-                username != null
-                        && username.equalsIgnoreCase(user.getUsername());
-
-        boolean notExpired =
-                expiration != null
-                        && expiration.after(new Date());
-
-        boolean enabled = user.isEnabled();
-
-        boolean versionMatches =
-                version.intValue() == user.getTokenVersion();
-
-        // Do not log the JWT or any sensitive token data.
-        log.debug("JWT usernameMatches: {}", usernameMatches);
-        log.debug("JWT notExpired: {}", notExpired);
-        log.debug("JWT enabled: {}", enabled);
-        log.debug("JWT tokenVersionMatches: {}", versionMatches);
-        log.debug(
-                "JWT tokenVersion claim: {}, database version: {}",
-                version,
-                user.getTokenVersion()
-        );
-
-        return usernameMatches
-                && notExpired
-                && enabled
-                && versionMatches;
     }
 
-    // Return token lifetime in seconds.
+    /**
+     * Returns the configured token lifetime in seconds.
+     */
     public long getExpirationSeconds() {
         return expirationMillis / 1000;
     }

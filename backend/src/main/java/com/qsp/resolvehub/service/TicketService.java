@@ -6,14 +6,17 @@ import com.qsp.resolvehub.dto.response.TicketResponse;
 import com.qsp.resolvehub.entity.Ticket;
 import com.qsp.resolvehub.entity.TicketPriority;
 import com.qsp.resolvehub.entity.TicketStatus;
-import jakarta.annotation.Priority;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 public interface TicketService {
 
     // Agent operations
-    Page<Ticket> getMyTickets(String agentEmail, Pageable pageable);
+    Page<Ticket> getMyTickets(
+            String agentEmail,
+            Pageable pageable
+    );
 
     Page<Ticket> getMyTicketsByStatus(
             String agentEmail,
@@ -21,11 +24,20 @@ public interface TicketService {
             Pageable pageable
     );
 
-    Ticket getMyTicketById(Integer ticketId, String agentEmail);
+    Ticket getMyTicketById(
+            Integer ticketId,
+            String agentEmail
+    );
 
-    Ticket startTicket(Integer ticketId, String agentEmail);
+    Ticket startTicket(
+            Integer ticketId,
+            String agentEmail
+    );
 
-    Ticket resolveTicket(Integer ticketId, String agentEmail);
+    Ticket resolveTicket(
+            Integer ticketId,
+            String agentEmail
+    );
 
     // Admin operations
     Page<Ticket> getAllTickets(
@@ -41,6 +53,17 @@ public interface TicketService {
             String changedByEmail
     );
 
+    Ticket assignTicket(
+            Integer ticketId,
+            Integer agentId,
+            String adminEmail
+    );
+
+    Ticket unassignTicket(
+            Integer ticketId,
+            String adminEmail
+    );
+
     // Employee operations
     Ticket createTicket(
             TicketRequest request,
@@ -52,6 +75,10 @@ public interface TicketService {
             Pageable pageable
     );
 
+    Ticket getMyEmployeeTicketById(
+            Integer ticketId,
+            String employeeEmail
+    );
 
     Ticket updateMyTicket(
             Integer ticketId,
@@ -79,7 +106,7 @@ public interface TicketService {
             String currentUserEmail
     );
 
-
+    // Search and filtering
     Page<TicketResponse> searchTickets(
             String search,
             TicketStatus status,
@@ -90,14 +117,6 @@ public interface TicketService {
             String currentUserEmail
     );
 
-
-    // Employee operations
-    Ticket getMyEmployeeTicketById(
-            Integer ticketId,
-            String employeeEmail
-    );
-
-    // Search and filtering
     Page<Ticket> searchTicketsByTitle(
             String title,
             Pageable pageable
@@ -113,7 +132,4 @@ public interface TicketService {
 
     // Ticket lookup
     Ticket getTicketByTicketNumber(String ticketNumber);
-
-    Ticket assignTicket(Integer ticketId, Integer agentId, String adminEmail);
-
-    Ticket unassignTicket(Integer ticketId, String adminEmail);}
+}

@@ -1,6 +1,6 @@
+
 package com.qsp.resolvehub.controller;
 
-import com.qsp.resolvehub.dto.request.AssignTicketRequest;
 import com.qsp.resolvehub.dto.request.UpdateRoleRequest;
 import com.qsp.resolvehub.dto.request.UpdateTicketStatusRequest;
 import com.qsp.resolvehub.dto.request.UpdateUserRequest;
@@ -9,19 +9,23 @@ import com.qsp.resolvehub.dto.response.AgentWorkloadResponse;
 import com.qsp.resolvehub.dto.response.TicketResponse;
 import com.qsp.resolvehub.dto.response.UserResponse;
 import com.qsp.resolvehub.entity.Ticket;
-import com.qsp.resolvehub.entity.User;
-import com.qsp.resolvehub.service.*;
-import org.springframework.security.core.Authentication;
 import com.qsp.resolvehub.entity.TicketStatus;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
+import com.qsp.resolvehub.entity.User;
+import com.qsp.resolvehub.service.AdminDashboardService;
+import com.qsp.resolvehub.service.AgentWorkloadService;
+import com.qsp.resolvehub.service.AutoAssignmentService;
+import com.qsp.resolvehub.service.TicketService;
+import com.qsp.resolvehub.service.UserService;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -30,6 +34,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/admin")
 @RequiredArgsConstructor
+@PreAuthorize("hasRole('ADMIN')")
 public class AdminController {
 
     private final UserService userService;
@@ -38,104 +43,73 @@ public class AdminController {
     private final AgentWorkloadService agentWorkloadService;
     private final AutoAssignmentService autoAssignmentService;
 
-    // Public endpoint: Get all admins without a token
+    // Public endpoint: Get all admins without authentication.
+    // SecurityConfig must explicitly permit this route.
     @GetMapping("/public/admins")
     @PreAuthorize("permitAll()")
     public ResponseEntity<List<UserResponse>> getAllAdmins() {
         return ResponseEntity.ok(userService.getAllAdmins());
     }
 
-    // Get the currently authenticated admin
+    // Get the currently authenticated admin.
     @GetMapping("/me")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<UserResponse> getCurrentAdmin(
             @AuthenticationPrincipal User user) {
         return ResponseEntity.ok(UserResponse.from(user));
     }
 
-    // Get all users
+    // Admin user management.
     @GetMapping("/users")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<UserResponse>> getAllUsers() {
         return ResponseEntity.ok(userService.getAllUsers());
     }
 
-    // Get a user by ID
     @GetMapping("/users/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<UserResponse> getUserById(
             @PathVariable Integer id) {
         return ResponseEntity.ok(userService.getUserById(id));
     }
 
-    // Update a user's name, email, and phone
     @PutMapping("/users/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<UserResponse> updateUser(
             @PathVariable Integer id,
             @Valid @RequestBody UpdateUserRequest request) {
         return ResponseEntity.ok(
-                userService.adminUpdateUser(id, request)
-        );
+                userService.adminUpdateUser(id, request));
     }
 
-    // Change a user's role
     @PutMapping("/users/{id}/roles")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<UserResponse> updateUserRole(
             @PathVariable Integer id,
             @Valid @RequestBody UpdateRoleRequest request) {
         return ResponseEntity.ok(
-                userService.updateUserRole(id, request)
-        );
+                userService.updateUserRole(id, request));
     }
 
-    // Activate a user account
     @PatchMapping("/users/{id}/activate")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<UserResponse> activateUser(
             @PathVariable Integer id) {
         return ResponseEntity.ok(
-                userService.setUserStatus(id, true)
-        );
+                userService.setUserStatus(id, true));
     }
 
-    // Deactivate a user account
     @PatchMapping("/users/{id}/deactivate")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<UserResponse> deactivateUser(
             @PathVariable Integer id) {
         return ResponseEntity.ok(
-                userService.setUserStatus(id, false)
-        );
+                userService.setUserStatus(id, false));
     }
 
+    // Admin dashboard remains admin-only.
+    // This mapping is handled separately below using an explicit route.
     @GetMapping("/dashboard")
     public ResponseEntity<AdminDashboardResponse> getDashboard() {
         return ResponseEntity.ok(
-                adminDashboardService.getDashboard()
-        );
+                adminDashboardService.getDashboard());
     }
 
-    @PatchMapping("/tickets/{ticketId}/assign")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<TicketResponse> assignTicket(
-            @PathVariable Integer ticketId,
-            @Valid @RequestBody AssignTicketRequest request,
-            Authentication authentication) {
-
-        return ResponseEntity.ok(
-                TicketResponse.from(
-                        ticketService.assignTicket(
-                                ticketId,
-                                request.agentId(),
-                                authentication.getName())
-                )
-        );
-    }
-
+    // List tickets.
     @GetMapping("/tickets")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Page<TicketResponse>> getAllTickets(
             @RequestParam(required = false) TicketStatus status,
             @RequestParam(defaultValue = "0") int page,
@@ -143,8 +117,7 @@ public class AdminController {
 
         if (page < 0 || size < 1 || size > 100) {
             throw new IllegalArgumentException(
-                    "Page must be non-negative and size must be between 1 and 100"
-            );
+                    "Page must be non-negative and size must be between 1 and 100");
         }
 
         Pageable pageable = PageRequest.of(page, size);
@@ -156,68 +129,44 @@ public class AdminController {
         return ResponseEntity.ok(tickets);
     }
 
-
     @GetMapping("/tickets/{ticketId}")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<TicketResponse> getTicketById(
             @PathVariable Integer ticketId) {
-
         return ResponseEntity.ok(
                 TicketResponse.from(
-                        ticketService.getTicketById(ticketId)
-                )
-        );
+                        ticketService.getTicketById(ticketId)));
     }
 
     @PatchMapping("/tickets/{ticketId}/status")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<TicketResponse> updateTicketStatus(
             @PathVariable Integer ticketId,
             @Valid @RequestBody UpdateTicketStatusRequest request,
             Authentication authentication) {
 
-        return ResponseEntity.ok(
-                TicketResponse.from(
-                        ticketService.updateTicketStatus(
-                                ticketId,
-                                request.status(),
-                                authentication.getName())
-                )
-        );
+        Ticket ticket = ticketService.updateTicketStatus(
+                ticketId,
+                request.status(),
+                authentication.getName());
+
+        return ResponseEntity.ok(TicketResponse.from(ticket));
     }
 
+    // Agent workload.
     @GetMapping("/agents/workload")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<AgentWorkloadResponse>> getAgentWorkloads() {
         return ResponseEntity.ok(
-                agentWorkloadService.getAgentWorkloads()
-        );
+                agentWorkloadService.getAgentWorkloads());
     }
 
+    // Automatic assignment.
     @PostMapping("/tickets/{ticketId}/auto-assign")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<TicketResponse> autoAssignTicket(
             @PathVariable Integer ticketId,
             Authentication authentication) {
 
         Ticket ticket = autoAssignmentService.assignToLeastBusyAgent(
                 ticketId,
-                authentication.getName()
-        );
-
-        return ResponseEntity.ok(TicketResponse.from(ticket));
-    }
-
-    @PatchMapping("/{ticketId}/unassign")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<TicketResponse> unassignTicket(
-            @PathVariable Integer ticketId,
-            Authentication authentication) {
-
-        Ticket ticket = ticketService.unassignTicket(
-                ticketId,
-                authentication.getName()
-        );
+                authentication.getName());
 
         return ResponseEntity.ok(TicketResponse.from(ticket));
     }

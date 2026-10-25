@@ -125,11 +125,7 @@ public class User implements UserDetails {
     public boolean isEnabled() {
         return account_status;
     }
-
-    public boolean isAccountStatus() {
-        return account_status;
-    }
-
+    
     public Role getRole() {
         return roles;
     }

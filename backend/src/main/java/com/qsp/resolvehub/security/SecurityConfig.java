@@ -66,27 +66,44 @@ public class SecurityConfig {
                 )
 
 
+
                 .authorizeHttpRequests(auth -> auth
-                        // Public endpoints
+                        // Public authentication endpoints
                         .requestMatchers(
                                 "/api/auth/register",
-                                "/api/auth/login"
+                                "/api/auth/login",
+                                "/api/admin/public/admins"
                         ).permitAll()
 
-                        // Any authenticated role: EMPLOYEE, AGENT, or ADMIN
+                        // Authenticated users of any role
                         .requestMatchers(
                                 "/api/auth/me",
-                                "/api/auth/logout"
+                                "/api/auth/logout",
+                                "/api/categories/**"
                         ).authenticated()
 
-                        // Keep your existing role-specific rules below
-                        .requestMatchers("/api/employee/**").hasRole("EMPLOYEE")
-                        .requestMatchers("/api/agent/**").hasRole("AGENT")
+                        // Admin-only user management
+                        .requestMatchers("/api/users/**").hasRole("ADMIN")
+
+                        // Role-specific dashboards
+                        .requestMatchers("/api/dashboard/admin").hasRole("ADMIN")
+                        .requestMatchers("/api/dashboard/agent").hasRole("AGENT")
+                        .requestMatchers("/api/dashboard/employee").hasRole("EMPLOYEE")
+
+                        // Admin-specific routes
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
 
-                        // Keep this only if it matches your existing security policy
+                        // Ticket endpoints: enforce role-specific permissions
+                        // in controller methods using @PreAuthorize.
+                        .requestMatchers("/api/tickets/**").authenticated()
+
+                        // Existing role-specific routes
+                        .requestMatchers("/api/employee/**").hasRole("EMPLOYEE")
+                        .requestMatchers("/api/agent/**").hasRole("AGENT")
+
                         .anyRequest().authenticated()
                 )
+
 
 
                 .addFilterBefore(
