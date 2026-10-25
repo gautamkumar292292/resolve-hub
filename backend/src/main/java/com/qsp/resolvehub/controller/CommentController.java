@@ -2,6 +2,7 @@
 package com.qsp.resolvehub.controller;
 
 import com.qsp.resolvehub.dto.request.CommentRequest;
+import com.qsp.resolvehub.dto.response.CommentResponse;
 import com.qsp.resolvehub.entity.Comment;
 import com.qsp.resolvehub.service.CommentService;
 
@@ -10,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -26,7 +28,7 @@ public class CommentController {
     private final CommentService commentService;
 
     @PostMapping
-    public ResponseEntity<Comment> addComment(
+    public ResponseEntity<CommentResponse> addComment(
             @PathVariable Integer ticketId,
             @Valid @RequestBody CommentRequest request,
             Authentication authentication) {
@@ -37,27 +39,31 @@ public class CommentController {
                 request.content()
         );
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(comment);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(CommentResponse.from(comment));
     }
 
     @GetMapping
-    public ResponseEntity<Page<Comment>> getComments(
+    public ResponseEntity<Page<CommentResponse>> getComments(
             @PathVariable Integer ticketId,
             Authentication authentication,
-            @PageableDefault(size = 10, sort = "createdAt")
+            @PageableDefault(size = 10,
+                    sort = "createdAt",
+                    direction = Sort.Direction.DESC
+    )
             Pageable pageable) {
 
-        Page<Comment> comments = commentService.getTicketComments(
+        Page<CommentResponse> comments = commentService.getTicketComments(
                 ticketId,
                 authentication.getName(),
                 pageable
-        );
+        ).map(CommentResponse::from);
 
         return ResponseEntity.ok(comments);
     }
 
     @PutMapping("/{commentId}")
-    public ResponseEntity<Comment> updateComment(
+    public ResponseEntity<CommentResponse> updateComment(
             @PathVariable Integer ticketId,
             @PathVariable Integer commentId,
             @Valid @RequestBody CommentRequest request,
@@ -70,7 +76,7 @@ public class CommentController {
                 request.content()
         );
 
-        return ResponseEntity.ok(comment);
+        return ResponseEntity.ok(CommentResponse.from(comment));
     }
 
     @DeleteMapping("/{commentId}")
