@@ -371,6 +371,33 @@ public class TicketServiceImpl implements TicketService {
     }
 
     @Override
+    @Transactional
+    public void deleteTicketAsAdmin(
+            Integer ticketId,
+            String adminEmail) {
+
+        validateTicketId(ticketId);
+
+        User admin = getUserByEmail(adminEmail);
+
+        if (admin.getRole() != Role.ADMIN || !admin.isEnabled()) {
+            throw new AccessDeniedException(
+                    "Only active admins can delete tickets");
+        }
+
+        Ticket ticket = getTicketOrThrow(ticketId);
+
+        // Apply the same safety restriction as employee deletion.
+        if (ticket.getStatus() != TicketStatus.OPEN
+                || ticket.getAssignedTo() != null) {
+            throw new IllegalStateException(
+                    "Only OPEN, unassigned tickets can be deleted");
+        }
+
+        ticketRepository.delete(ticket);
+    }
+
+    @Override
     public Ticket unassignTicket(
             Integer ticketId,
             String adminEmail) {
@@ -428,7 +455,6 @@ public class TicketServiceImpl implements TicketService {
      * OPEN/REOPENED -> ASSIGNED must go through assignTicket().
      * ASSIGNED -> OPEN must go through unassignTicket().
      */
-
     @Override
     @Transactional
     public Ticket updateTicketStatus(
@@ -440,27 +466,22 @@ public class TicketServiceImpl implements TicketService {
 
         if (newStatus == null) {
             throw new IllegalArgumentException(
-                    "New ticket status cannot be null"
-            );
+                    "New ticket status cannot be null");
         }
 
         User actor = getUserByEmail(changedByEmail);
 
         if (actor.getRole() != Role.ADMIN || !actor.isEnabled()) {
             throw new AccessDeniedException(
-                    "Only active admins can use this status operation"
-            );
+                    "Only active admins can use this status operation");
         }
 
         Ticket ticket = getTicketOrThrow(ticketId);
         TicketStatus oldStatus = ticket.getStatus();
 
+        // Agent-only transitions must use the dedicated workflow endpoints.
         boolean validTransition = switch (oldStatus) {
-            case ASSIGNED ->
-                    newStatus == TicketStatus.IN_PROGRESS;
-
-            case IN_PROGRESS ->
-                    newStatus == TicketStatus.RESOLVED;
+            case ASSIGNED, IN_PROGRESS, OPEN, REOPENED -> false;
 
             case RESOLVED ->
                     newStatus == TicketStatus.CLOSED
@@ -468,26 +489,28 @@ public class TicketServiceImpl implements TicketService {
 
             case CLOSED ->
                     newStatus == TicketStatus.REOPENED;
-
-            case OPEN, REOPENED -> false;
         };
 
         if (!validTransition) {
             throw new IllegalStateException(
                     "Invalid ticket status transition: "
                             + oldStatus + " -> " + newStatus
-            );
+                            + ". Agent workflow transitions must use "
+                            + "the dedicated start/resolve endpoints.");
         }
 
         ticket.setStatus(newStatus);
 
-        if (newStatus == TicketStatus.RESOLVED) {
-            ticket.setResolvedAt(LocalDateTime.now());
-        } else if (newStatus == TicketStatus.REOPENED) {
+        if (newStatus == TicketStatus.REOPENED) {
+            // Return the ticket to the assignment queue.
             ticket.setResolvedAt(null);
+            ticket.setAssignedTo(null);
+        } else if (newStatus == TicketStatus.CLOSED) {
+            // Preserve the resolution timestamp for audit purposes.
         }
 
         Ticket saved = ticketRepository.save(ticket);
+
         recordStatusChange(saved, oldStatus, changedByEmail);
 
         return saved;
@@ -562,15 +585,30 @@ public class TicketServiceImpl implements TicketService {
 
     @Override
     @Transactional
-    public Ticket closeMyTicket(
-            Integer ticketId,
-            String employeeEmail) {
+    public Ticket closeMyTicket(Integer ticketId, String actorEmail) {
+        validateTicketId(ticketId);
 
-        Ticket ticket = getEmployeeTicket(ticketId, employeeEmail);
+        User actor = getUserByEmail(actorEmail);
+
+        if (!actor.isEnabled()) {
+            throw new AccessDeniedException("Inactive users cannot close tickets");
+        }
+
+        Ticket ticket;
+
+        if (actor.getRole() == Role.EMPLOYEE) {
+            ticket = getEmployeeTicket(ticketId, actorEmail);
+        } else if (actor.getRole() == Role.ADMIN) {
+            ticket = getTicketOrThrow(ticketId);
+        } else {
+            throw new AccessDeniedException(
+                    "Only employees and admins can close tickets"
+            );
+        }
 
         if (ticket.getStatus() != TicketStatus.RESOLVED) {
             throw new IllegalStateException(
-                    "Only RESOLVED tickets can be closed by employees"
+                    "Only RESOLVED tickets can be closed"
             );
         }
 
@@ -578,7 +616,7 @@ public class TicketServiceImpl implements TicketService {
         ticket.setStatus(TicketStatus.CLOSED);
 
         Ticket saved = ticketRepository.save(ticket);
-        recordStatusChange(saved, oldStatus, employeeEmail);
+        recordStatusChange(saved, oldStatus, actorEmail);
 
         return saved;
     }

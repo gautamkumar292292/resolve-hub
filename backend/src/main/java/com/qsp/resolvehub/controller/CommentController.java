@@ -27,6 +27,7 @@ public class CommentController {
 
     private final CommentService commentService;
 
+    // Add a comment to an accessible ticket.
     @PostMapping
     public ResponseEntity<CommentResponse> addComment(
             @PathVariable Integer ticketId,
@@ -43,25 +44,29 @@ public class CommentController {
                 .body(CommentResponse.from(comment));
     }
 
+    // Get paginated comments for an accessible ticket.
     @GetMapping
     public ResponseEntity<Page<CommentResponse>> getComments(
             @PathVariable Integer ticketId,
             Authentication authentication,
-            @PageableDefault(size = 10,
+            @PageableDefault(
+                    size = 10,
                     sort = "createdAt",
                     direction = Sort.Direction.DESC
-    )
+            )
             Pageable pageable) {
 
-        Page<CommentResponse> comments = commentService.getTicketComments(
-                ticketId,
-                authentication.getName(),
-                pageable
-        ).map(CommentResponse::from);
+        Page<CommentResponse> comments =
+                commentService.getTicketComments(
+                        ticketId,
+                        authentication.getName(),
+                        pageable
+                ).map(CommentResponse::from);
 
         return ResponseEntity.ok(comments);
     }
 
+    // Only the comment author can edit their comment.
     @PutMapping("/{commentId}")
     public ResponseEntity<CommentResponse> updateComment(
             @PathVariable Integer ticketId,
@@ -79,6 +84,7 @@ public class CommentController {
         return ResponseEntity.ok(CommentResponse.from(comment));
     }
 
+    // The comment author or an admin can delete a comment.
     @DeleteMapping("/{commentId}")
     public ResponseEntity<Void> deleteComment(
             @PathVariable Integer ticketId,

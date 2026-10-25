@@ -45,6 +45,8 @@ public interface TicketService {
             Pageable pageable
     );
 
+    void deleteTicketAsAdmin(Integer ticketId, String adminEmail);
+
     Ticket getTicketById(Integer ticketId);
 
     Ticket updateTicketStatus(

@@ -7,6 +7,7 @@ import com.qsp.resolvehub.dto.response.RegisterResponse;
 import com.qsp.resolvehub.dto.response.UserResponse;
 import com.qsp.resolvehub.entity.Role;
 import com.qsp.resolvehub.entity.User;
+import com.qsp.resolvehub.exception.DuplicateEmailException;
 import com.qsp.resolvehub.repository.UserRepository;
 import com.qsp.resolvehub.security.JwtService;
 import com.qsp.resolvehub.service.AuthService;
@@ -41,7 +42,7 @@ public class AuthServiceImpl implements AuthService {
         String email = normalizeEmail(request.getEmail());
 
         if (userRepository.existsByEmail(email)) {
-            throw new IllegalArgumentException(
+            throw new DuplicateEmailException(
                     "This email is already registered"
             );
         }

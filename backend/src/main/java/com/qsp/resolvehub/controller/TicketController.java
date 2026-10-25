@@ -163,14 +163,17 @@ public class TicketController {
 
     // EMPLOYEE: Close own RESOLVED ticket.
     // Required route: POST /api/tickets/{ticketId}/close
+// EMPLOYEE / ADMIN: Close a resolved ticket.
     @PostMapping("/tickets/{ticketId}/close")
-    @PreAuthorize("hasRole('EMPLOYEE')")
+    @PreAuthorize("hasAnyRole('EMPLOYEE', 'ADMIN')")
     public ResponseEntity<TicketResponse> closeMyTicket(
             @PathVariable Integer ticketId,
             Authentication authentication) {
 
         Ticket ticket = ticketService.closeMyTicket(
-                ticketId, authentication.getName());
+                ticketId,
+                authentication.getName()
+        );
 
         return ResponseEntity.ok(TicketResponse.from(ticket));
     }

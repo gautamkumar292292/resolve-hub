@@ -30,7 +30,27 @@ public class CommentServiceImpl implements CommentService {
     private final TicketRepository ticketRepository;
     private final UserRepository userRepository;
 
+    private void validateIds(Integer ticketId, Integer commentId) {
+        if (ticketId == null || ticketId <= 0) {
+            throw new IllegalArgumentException(
+                    "Ticket ID must be a positive number"
+            );
+        }
+
+        if (commentId != null && commentId <= 0) {
+            throw new IllegalArgumentException(
+                    "Comment ID must be a positive number"
+            );
+        }
+    }
+
     private User getActiveUser(String email) {
+        if (!StringUtils.hasText(email)) {
+            throw new AccessDeniedException(
+                    "Authenticated user email is required"
+            );
+        }
+
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() ->
                         new UserNotFoundException("User not found"));
@@ -43,39 +63,70 @@ public class CommentServiceImpl implements CommentService {
     }
 
     private Ticket getAccessibleTicket(Integer ticketId, User user) {
+        validateIds(ticketId, null);
+
         return switch (user.getRole()) {
             case ADMIN -> ticketRepository.findById(ticketId)
                     .orElseThrow(() ->
-                            new TicketNotFoundException("Ticket not found"));
+                            new TicketNotFoundException(
+                                    "Ticket not found"
+                            ));
 
             case EMPLOYEE -> ticketRepository
                     .findByIdAndRequester(ticketId, user)
                     .orElseThrow(() ->
                             new TicketNotFoundException(
-                                    "Ticket not found or does not belong to you"));
+                                    "Ticket not found or does not belong to you"
+                            ));
 
             case AGENT -> ticketRepository
                     .findByIdAndAssignedTo(ticketId, user)
                     .orElseThrow(() ->
                             new TicketNotFoundException(
-                                    "Ticket not found or not assigned to you"));
+                                    "Ticket not found or not assigned to you"
+                            ));
         };
     }
 
     private String validateContent(String content) {
         if (!StringUtils.hasText(content)) {
             throw new IllegalArgumentException(
-                    "Comment cannot be empty");
+                    "Comment cannot be empty"
+            );
         }
 
         String trimmed = content.trim();
 
         if (trimmed.length() > 2000) {
             throw new IllegalArgumentException(
-                    "Comment cannot exceed 2000 characters");
+                    "Comment cannot exceed 2000 characters"
+            );
         }
 
         return trimmed;
+    }
+
+    private Comment getCommentForTicket(
+            Integer ticketId,
+            Integer commentId,
+            Ticket ticket) {
+
+        validateIds(ticketId, commentId);
+
+        Comment comment = commentRepository.findById(commentId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "Comment not found"
+                        ));
+
+        if (comment.getTicket() == null
+                || !comment.getTicket().getId().equals(ticket.getId())) {
+            throw new TicketNotFoundException(
+                    "Comment does not belong to this ticket"
+            );
+        }
+
+        return comment;
     }
 
     @Override
@@ -83,6 +134,8 @@ public class CommentServiceImpl implements CommentService {
             Integer ticketId,
             String userEmail,
             String content) {
+
+        validateIds(ticketId, null);
 
         User user = getActiveUser(userEmail);
         Ticket ticket = getAccessibleTicket(ticketId, user);
@@ -102,6 +155,8 @@ public class CommentServiceImpl implements CommentService {
             String userEmail,
             Pageable pageable) {
 
+        validateIds(ticketId, null);
+
         User user = getActiveUser(userEmail);
         Ticket ticket = getAccessibleTicket(ticketId, user);
 
@@ -116,22 +171,21 @@ public class CommentServiceImpl implements CommentService {
             String userEmail,
             String content) {
 
+        validateIds(ticketId, commentId);
+
         User user = getActiveUser(userEmail);
         Ticket ticket = getAccessibleTicket(ticketId, user);
 
-        Comment comment = commentRepository.findById(commentId)
-                .orElseThrow(() ->
-                        new IllegalArgumentException(
-                                "Comment not found"));
-
-        if (!comment.getTicket().getId().equals(ticket.getId())) {
-            throw new TicketNotFoundException(
-                    "Comment does not belong to this ticket");
-        }
+        Comment comment = getCommentForTicket(
+                ticketId,
+                commentId,
+                ticket
+        );
 
         if (!comment.getUser().getId().equals(user.getId())) {
             throw new AccessDeniedException(
-                    "Only the comment author can edit it");
+                    "Only the comment author can edit it"
+            );
         }
 
         comment.setContent(validateContent(content));
@@ -145,18 +199,16 @@ public class CommentServiceImpl implements CommentService {
             Integer commentId,
             String userEmail) {
 
+        validateIds(ticketId, commentId);
+
         User user = getActiveUser(userEmail);
         Ticket ticket = getAccessibleTicket(ticketId, user);
 
-        Comment comment = commentRepository.findById(commentId)
-                .orElseThrow(() ->
-                        new IllegalArgumentException(
-                                "Comment not found"));
-
-        if (!comment.getTicket().getId().equals(ticket.getId())) {
-            throw new TicketNotFoundException(
-                    "Comment does not belong to this ticket");
-        }
+        Comment comment = getCommentForTicket(
+                ticketId,
+                commentId,
+                ticket
+        );
 
         boolean isAuthor =
                 comment.getUser().getId().equals(user.getId());
@@ -165,7 +217,8 @@ public class CommentServiceImpl implements CommentService {
 
         if (!isAuthor && !isAdmin) {
             throw new AccessDeniedException(
-                    "Only the comment author or an admin can delete it");
+                    "Only the comment author or an admin can delete it"
+            );
         }
 
         commentRepository.delete(comment);

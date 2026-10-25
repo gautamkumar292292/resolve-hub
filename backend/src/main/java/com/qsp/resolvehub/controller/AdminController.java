@@ -6,6 +6,7 @@ import com.qsp.resolvehub.dto.request.UpdateUserRequest;
 import com.qsp.resolvehub.dto.response.AgentWorkloadResponse;
 import com.qsp.resolvehub.dto.response.TicketResponse;
 import com.qsp.resolvehub.dto.response.UserResponse;
+import com.qsp.resolvehub.entity.Role;
 import com.qsp.resolvehub.entity.Ticket;
 import com.qsp.resolvehub.entity.TicketStatus;
 import com.qsp.resolvehub.entity.User;
@@ -88,7 +89,7 @@ public class AdminController {
                 userService.updateUserRole(id, request));
     }
 
-    // Activate a user.
+    // Activate a user (existing endpoint).
     @PatchMapping("/users/{id}/activate")
     public ResponseEntity<UserResponse> activateUser(
             @PathVariable Integer id) {
@@ -97,13 +98,60 @@ public class AdminController {
                 userService.setUserStatus(id, true));
     }
 
-    // Deactivate a user.
+    // Deactivate a user (existing endpoint).
     @PatchMapping("/users/{id}/deactivate")
     public ResponseEntity<UserResponse> deactivateUser(
             @PathVariable Integer id) {
 
         return ResponseEntity.ok(
                 userService.setUserStatus(id, false));
+    }
+
+    // Set a user's status using the requirements' status endpoint.
+    // PATCH /api/admin/users/{id}/status?enabled=true|false
+    @PatchMapping("/users/{id}/status")
+    public ResponseEntity<UserResponse> updateUserStatus(
+            @PathVariable Integer id,
+            @RequestParam boolean enabled) {
+
+        return ResponseEntity.ok(
+                userService.setUserStatus(id, enabled));
+    }
+
+    // ADMIN: Delete an eligible ticket.
+// DELETE /api/admin/tickets/{ticketId}
+    @DeleteMapping("/tickets/{ticketId}")
+    public ResponseEntity<Void> deleteTicket(
+            @PathVariable Integer ticketId,
+            Authentication authentication) {
+
+        ticketService.deleteTicketAsAdmin(
+                ticketId,
+                authentication.getName());
+
+        return ResponseEntity.noContent().build();
+    }
+
+    // Get all agents.
+    @GetMapping("/agents")
+    public ResponseEntity<List<UserResponse>> getAllAgents() {
+        List<UserResponse> agents = userService.getAllUsers()
+                .stream()
+                .filter(user -> user.getRoles() == Role.AGENT)
+                .toList();
+
+        return ResponseEntity.ok(agents);
+    }
+
+    // Get all employees.
+    @GetMapping("/employees")
+    public ResponseEntity<List<UserResponse>> getAllEmployees() {
+        List<UserResponse> employees = userService.getAllUsers()
+                .stream()
+                .filter(user -> user.getRoles() == Role.EMPLOYEE)
+                .toList();
+
+        return ResponseEntity.ok(employees);
     }
 
     // List tickets with optional status filtering and pagination.
@@ -183,7 +231,6 @@ public class AdminController {
     // Get agent workload information.
     @GetMapping("/agents/workload")
     public ResponseEntity<List<AgentWorkloadResponse>> getAgentWorkloads() {
-
         return ResponseEntity.ok(
                 agentWorkloadService.getAgentWorkloads());
     }
@@ -195,19 +242,6 @@ public class AdminController {
             Authentication authentication) {
 
         Ticket ticket = autoAssignmentService.assignToLeastBusyAgent(
-                ticketId,
-                authentication.getName());
-
-        return ResponseEntity.ok(TicketResponse.from(ticket));
-    }
-
-    @PostMapping("/tickets/{ticketId}/close")
-    @PreAuthorize("hasRole('EMPLOYEE')")
-    public ResponseEntity<TicketResponse> closeMyTicket(
-            @PathVariable Integer ticketId,
-            Authentication authentication) {
-
-        Ticket ticket = ticketService.closeMyTicket(
                 ticketId,
                 authentication.getName());
 
