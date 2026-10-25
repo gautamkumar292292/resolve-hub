@@ -1,26 +1,29 @@
 
 package com.qsp.resolvehub.service.impl;
 
+import com.qsp.resolvehub.dto.request.TicketRequest;
+import com.qsp.resolvehub.entity.Category;
 import com.qsp.resolvehub.entity.Role;
 import com.qsp.resolvehub.entity.Ticket;
 import com.qsp.resolvehub.entity.TicketStatus;
 import com.qsp.resolvehub.entity.User;
+import com.qsp.resolvehub.exception.ResourceNotFoundException;
 import com.qsp.resolvehub.exception.TicketNotFoundException;
 import com.qsp.resolvehub.exception.UserNotFoundException;
+import com.qsp.resolvehub.repository.CategoryRepository;
 import com.qsp.resolvehub.repository.TicketRepository;
 import com.qsp.resolvehub.repository.UserRepository;
 import com.qsp.resolvehub.service.TicketHistoryService;
 import com.qsp.resolvehub.service.TicketService;
-
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.time.LocalDateTime;
+import java.util.Locale;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -30,6 +33,8 @@ public class TicketServiceImpl implements TicketService {
     private final TicketRepository ticketRepository;
     private final UserRepository userRepository;
     private final TicketHistoryService ticketHistoryService;
+    private final CategoryRepository categoryRepository;
+    // -------------------- Common helpers --------------------
 
     private User getAgent(String email) {
         User agent = userRepository.findByEmail(email)
@@ -47,26 +52,6 @@ public class TicketServiceImpl implements TicketService {
         }
 
         return agent;
-    }
-
-    private Ticket getAssignedTicket(Integer ticketId, String email) {
-        User agent = getAgent(email);
-
-        return ticketRepository.findByIdAndAssignedTo(ticketId, agent)
-                .orElseThrow(() ->
-                        new TicketNotFoundException(
-                                "Ticket not found or not assigned to you"));
-    }
-
-    private Ticket getEmployeeTicket(
-            Integer ticketId, String employeeEmail) {
-
-        User employee = getEmployee(employeeEmail);
-
-        return ticketRepository.findByIdAndRequester(ticketId, employee)
-                .orElseThrow(() ->
-                        new TicketNotFoundException(
-                                "Ticket not found or does not belong to you"));
     }
 
     private User getEmployee(String email) {
@@ -94,6 +79,43 @@ public class TicketServiceImpl implements TicketService {
                                 "Ticket not found with ID: " + ticketId));
     }
 
+    private Ticket getAssignedTicket(
+            Integer ticketId,
+            String agentEmail) {
+
+        User agent = getAgent(agentEmail);
+
+        return ticketRepository.findByIdAndAssignedTo(ticketId, agent)
+                .orElseThrow(() ->
+                        new TicketNotFoundException(
+                                "Ticket not found or not assigned to you"));
+    }
+
+    private Ticket getEmployeeTicket(
+            Integer ticketId,
+            String employeeEmail) {
+
+        User employee = getEmployee(employeeEmail);
+
+        return ticketRepository.findByIdAndRequester(ticketId, employee)
+                .orElseThrow(() ->
+                        new TicketNotFoundException(
+                                "Ticket not found or does not belong to you"));
+    }
+
+    private Category getActiveCategory(Integer categoryId) {
+        Category category = categoryRepository.findById(categoryId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Category not found"));
+
+        if (!category.isActive()) {
+            throw new IllegalArgumentException(
+                    "Cannot use an inactive category");
+        }
+
+        return category;
+    }
+
     private void recordStatusChange(
             Ticket ticket,
             TicketStatus oldStatus,
@@ -104,14 +126,36 @@ public class TicketServiceImpl implements TicketService {
                     ticket,
                     oldStatus,
                     ticket.getStatus(),
-                    changedByEmail);
+                    changedByEmail
+            );
         }
     }
+
+    private String generateTicketNumber() {
+        for (int attempt = 0; attempt < 5; attempt++) {
+            String ticketNumber = "TKT-" +
+                    UUID.randomUUID()
+                            .toString()
+                            .replace("-", "")
+                            .substring(0, 12)
+                            .toUpperCase(Locale.ROOT);
+
+            if (!ticketRepository.existsByTicketNumber(ticketNumber)) {
+                return ticketNumber;
+            }
+        }
+
+        throw new IllegalStateException(
+                "Could not generate a unique ticket number");
+    }
+
+    // -------------------- Agent operations --------------------
 
     @Override
     @Transactional(readOnly = true)
     public Page<Ticket> getMyTickets(
-            String agentEmail, Pageable pageable) {
+            String agentEmail,
+            Pageable pageable) {
 
         User agent = getAgent(agentEmail);
         return ticketRepository.findByAssignedTo(agent, pageable);
@@ -133,13 +177,17 @@ public class TicketServiceImpl implements TicketService {
     @Override
     @Transactional(readOnly = true)
     public Ticket getMyTicketById(
-            Integer ticketId, String agentEmail) {
+            Integer ticketId,
+            String agentEmail) {
 
         return getAssignedTicket(ticketId, agentEmail);
     }
 
     @Override
-    public Ticket startTicket(Integer ticketId, String agentEmail) {
+    public Ticket startTicket(
+            Integer ticketId,
+            String agentEmail) {
+
         Ticket ticket = getAssignedTicket(ticketId, agentEmail);
 
         if (ticket.getStatus() != TicketStatus.ASSIGNED) {
@@ -157,7 +205,10 @@ public class TicketServiceImpl implements TicketService {
     }
 
     @Override
-    public Ticket resolveTicket(Integer ticketId, String agentEmail) {
+    public Ticket resolveTicket(
+            Integer ticketId,
+            String agentEmail) {
+
         Ticket ticket = getAssignedTicket(ticketId, agentEmail);
 
         if (ticket.getStatus() != TicketStatus.IN_PROGRESS) {
@@ -174,6 +225,8 @@ public class TicketServiceImpl implements TicketService {
 
         return savedTicket;
     }
+
+    // -------------------- Admin operations --------------------
 
     @Override
     public Ticket assignTicket(
@@ -218,7 +271,8 @@ public class TicketServiceImpl implements TicketService {
     @Override
     @Transactional(readOnly = true)
     public Page<Ticket> getAllTickets(
-            TicketStatus status, Pageable pageable) {
+            TicketStatus status,
+            Pageable pageable) {
 
         if (status == null) {
             return ticketRepository.findAll(pageable);
@@ -248,23 +302,29 @@ public class TicketServiceImpl implements TicketService {
         TicketStatus oldStatus = ticket.getStatus();
 
         boolean validTransition = switch (oldStatus) {
-            case OPEN -> newStatus == TicketStatus.ASSIGNED;
+            case OPEN ->
+                    newStatus == TicketStatus.ASSIGNED;
 
-            case ASSIGNED -> newStatus == TicketStatus.IN_PROGRESS
-                    || newStatus == TicketStatus.OPEN
-                    || newStatus == TicketStatus.CLOSED;
+            case ASSIGNED ->
+                    newStatus == TicketStatus.IN_PROGRESS
+                            || newStatus == TicketStatus.OPEN
+                            || newStatus == TicketStatus.CLOSED;
 
-            case IN_PROGRESS -> newStatus == TicketStatus.RESOLVED
-                    || newStatus == TicketStatus.ASSIGNED
-                    || newStatus == TicketStatus.CLOSED;
+            case IN_PROGRESS ->
+                    newStatus == TicketStatus.RESOLVED
+                            || newStatus == TicketStatus.ASSIGNED
+                            || newStatus == TicketStatus.CLOSED;
 
-            case RESOLVED -> newStatus == TicketStatus.CLOSED
-                    || newStatus == TicketStatus.REOPENED;
+            case RESOLVED ->
+                    newStatus == TicketStatus.CLOSED
+                            || newStatus == TicketStatus.REOPENED;
 
-            case CLOSED -> newStatus == TicketStatus.REOPENED;
+            case CLOSED ->
+                    newStatus == TicketStatus.REOPENED;
 
-            case REOPENED -> newStatus == TicketStatus.ASSIGNED
-                    || newStatus == TicketStatus.CLOSED;
+            case REOPENED ->
+                    newStatus == TicketStatus.ASSIGNED
+                            || newStatus == TicketStatus.CLOSED;
         };
 
         if (oldStatus == newStatus || !validTransition) {
@@ -277,7 +337,10 @@ public class TicketServiceImpl implements TicketService {
 
         if (newStatus == TicketStatus.RESOLVED) {
             ticket.setResolvedAt(LocalDateTime.now());
-        } else if (newStatus == TicketStatus.REOPENED) {
+        } else if (newStatus == TicketStatus.REOPENED
+                || newStatus == TicketStatus.OPEN
+                || newStatus == TicketStatus.ASSIGNED
+                || newStatus == TicketStatus.IN_PROGRESS) {
             ticket.setResolvedAt(null);
         }
 
@@ -287,9 +350,89 @@ public class TicketServiceImpl implements TicketService {
         return savedTicket;
     }
 
+    // -------------------- Employee operations --------------------
+
+    @Override
+    public Ticket createTicket(
+            TicketRequest request,
+            String employeeEmail) {
+
+        User employee = getEmployee(employeeEmail);
+        Category category = getActiveCategory(request.categoryId());
+
+        Ticket ticket = new Ticket();
+        ticket.setTicketNumber(generateTicketNumber());
+        ticket.setTitle(request.title().trim());
+        ticket.setDescription(request.description().trim());
+        ticket.setCategory(category);
+        ticket.setRequester(employee);
+        ticket.setStatus(TicketStatus.OPEN);
+        ticket.setAssignedTo(null);
+
+        return ticketRepository.save(ticket);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<Ticket> getMyEmployeeTickets(
+            String employeeEmail,
+            Pageable pageable) {
+
+        User employee = getEmployee(employeeEmail);
+        return ticketRepository.findByRequester(employee, pageable);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Ticket getMyEmployeeTicketById(
+            Integer ticketId,
+            String employeeEmail) {
+
+        return getEmployeeTicket(ticketId, employeeEmail);
+    }
+
+    @Override
+    public Ticket updateMyTicket(
+            Integer ticketId,
+            TicketRequest request,
+            String employeeEmail) {
+
+        Ticket ticket = getEmployeeTicket(ticketId, employeeEmail);
+
+        if (ticket.getStatus() != TicketStatus.OPEN) {
+            throw new IllegalStateException(
+                    "Only OPEN tickets can be edited");
+        }
+
+        Category category = getActiveCategory(request.categoryId());
+
+        ticket.setTitle(request.title().trim());
+        ticket.setDescription(request.description().trim());
+        ticket.setCategory(category);
+
+        return ticketRepository.save(ticket);
+    }
+
+    @Override
+    public void deleteMyTicket(
+            Integer ticketId,
+            String employeeEmail) {
+
+        Ticket ticket = getEmployeeTicket(ticketId, employeeEmail);
+
+        if (ticket.getStatus() != TicketStatus.OPEN
+                || ticket.getAssignedTo() != null) {
+            throw new IllegalStateException(
+                    "Only OPEN, unassigned tickets can be deleted");
+        }
+
+        ticketRepository.delete(ticket);
+    }
+
     @Override
     public Ticket closeMyTicket(
-            Integer ticketId, String employeeEmail) {
+            Integer ticketId,
+            String employeeEmail) {
 
         Ticket ticket = getEmployeeTicket(ticketId, employeeEmail);
 
@@ -309,7 +452,8 @@ public class TicketServiceImpl implements TicketService {
 
     @Override
     public Ticket reopenMyTicket(
-            Integer ticketId, String employeeEmail) {
+            Integer ticketId,
+            String employeeEmail) {
 
         Ticket ticket = getEmployeeTicket(ticketId, employeeEmail);
 
@@ -327,5 +471,4 @@ public class TicketServiceImpl implements TicketService {
 
         return savedTicket;
     }
-
 }

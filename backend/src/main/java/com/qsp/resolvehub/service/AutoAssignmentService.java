@@ -5,5 +5,6 @@ import com.qsp.resolvehub.entity.Ticket;
 public interface AutoAssignmentService {
 
 
+
     Ticket assignToLeastBusyAgent(Integer ticketId, String adminEmail);
 }

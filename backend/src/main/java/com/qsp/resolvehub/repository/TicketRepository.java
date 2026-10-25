@@ -19,34 +19,26 @@ import java.util.Optional;
 
 public interface TicketRepository extends JpaRepository<Ticket, Integer> {
 
-    // Get all tickets assigned to a particular agent
+    // Agent ticket queries
     Page<Ticket> findByAssignedTo(User assignedTo, Pageable pageable);
 
-    // Get one ticket only if it belongs to the specified agent
     Optional<Ticket> findByIdAndAssignedTo(Integer id, User assignedTo);
 
-    // Get assigned tickets filtered by status
     Page<Ticket> findByAssignedToAndStatus(
             User assignedTo,
             TicketStatus status,
             Pageable pageable
     );
 
-    // Check whether a ticket number already exists
+    // Ticket validation and lookup
     boolean existsByTicketNumber(String ticketNumber);
 
+    Optional<Ticket> findByTicketNumber(String ticketNumber);
 
+    // Ticket counts
+    long countByAssignedToAndStatus(User assignedTo, TicketStatus status);
 
-    long countByAssignedToAndStatus(
-            com.qsp.resolvehub.entity.User assignedTo,
-            com.qsp.resolvehub.entity.TicketStatus status
-    );
-
-
-    long countByAssignedToAndPriority(
-            com.qsp.resolvehub.entity.User assignedTo,
-            com.qsp.resolvehub.entity.TicketPriority priority
-    );
+    long countByAssignedToAndPriority(User assignedTo, TicketPriority priority);
 
     long countByStatus(TicketStatus status);
 
@@ -54,41 +46,32 @@ public interface TicketRepository extends JpaRepository<Ticket, Integer> {
 
     long countByAssignedToIsNull();
 
-    Optional<Ticket> findById(Integer id);
-
-    Page<Ticket> findByStatus(
-            TicketStatus status,
-            Pageable pageable
-    );
-
     long countByAssignedTo(User assignedTo);
-
-    Page<Ticket> findByTitleContainingIgnoreCase(
-            String title,
-            Pageable pageable
-    );
-
-    Optional<Ticket> findByTicketNumber(String ticketNumber);
-
-    Page<Ticket> findByPriority(
-            TicketPriority priority,
-            Pageable pageable
-    );
 
     long countByAssignedToAndStatusIn(
             User assignedTo,
             Collection<TicketStatus> statuses
     );
 
+    // Admin filtering
+    Page<Ticket> findByStatus(TicketStatus status, Pageable pageable);
+
+    Page<Ticket> findByTitleContainingIgnoreCase(
+            String title,
+            Pageable pageable
+    );
+
+    Page<Ticket> findByPriority(TicketPriority priority, Pageable pageable);
+
+    // Employee ticket queries
+    Page<Ticket> findByRequester(User requester, Pageable pageable);
+
+    Optional<Ticket> findByIdAndRequester(Integer id, User requester);
+
+    // Lock a ticket during a status transition
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT t FROM Ticket t WHERE t.id = :ticketId")
     Optional<Ticket> findByIdForUpdate(
             @Param("ticketId") Integer ticketId
     );
-    Optional<Ticket> findByIdAndRequester(
-            Integer id,
-            User requester
-    );
-
-
 }
