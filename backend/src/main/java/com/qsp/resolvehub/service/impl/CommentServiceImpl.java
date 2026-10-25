@@ -6,6 +6,7 @@ import com.qsp.resolvehub.entity.Role;
 import com.qsp.resolvehub.entity.Ticket;
 import com.qsp.resolvehub.entity.User;
 import com.qsp.resolvehub.exception.TicketNotFoundException;
+import com.qsp.resolvehub.exception.UserNotFoundException;
 import com.qsp.resolvehub.repository.CommentRepository;
 import com.qsp.resolvehub.repository.TicketRepository;
 import com.qsp.resolvehub.repository.UserRepository;
@@ -29,52 +30,67 @@ public class CommentServiceImpl implements CommentService {
     private final TicketRepository ticketRepository;
     private final UserRepository userRepository;
 
-    private User getAgent(String email) {
-        User agent = userRepository.findByEmail(email)
+    private User getActiveUser(String email) {
+        User user = userRepository.findByEmail(email)
                 .orElseThrow(() ->
-                        new AccessDeniedException("Agent not found"));
+                        new UserNotFoundException("User not found"));
 
-        if (agent.getRole() != Role.AGENT) {
-            throw new AccessDeniedException(
-                    "Only agents can access this resource");
+        if (!user.isAccount_status()) {
+            throw new AccessDeniedException("Account is inactive");
         }
 
-        return agent;
+        return user;
     }
 
-    private Ticket getAssignedTicket(Integer ticketId, User agent) {
-        return ticketRepository
-                .findByIdAndAssignedTo(ticketId, agent)
-                .orElseThrow(() ->
-                        new TicketNotFoundException(
-                                "Ticket not found or not assigned to you"));
+    private Ticket getAccessibleTicket(Integer ticketId, User user) {
+        return switch (user.getRole()) {
+            case ADMIN -> ticketRepository.findById(ticketId)
+                    .orElseThrow(() ->
+                            new TicketNotFoundException("Ticket not found"));
+
+            case EMPLOYEE -> ticketRepository
+                    .findByIdAndRequester(ticketId, user)
+                    .orElseThrow(() ->
+                            new TicketNotFoundException(
+                                    "Ticket not found or does not belong to you"));
+
+            case AGENT -> ticketRepository
+                    .findByIdAndAssignedTo(ticketId, user)
+                    .orElseThrow(() ->
+                            new TicketNotFoundException(
+                                    "Ticket not found or not assigned to you"));
+        };
     }
 
-    @Override
-    public Comment addComment(
-            Integer ticketId,
-            String agentEmail,
-            String content) {
-
+    private String validateContent(String content) {
         if (!StringUtils.hasText(content)) {
             throw new IllegalArgumentException(
                     "Comment cannot be empty");
         }
 
-        String trimmedContent = content.trim();
+        String trimmed = content.trim();
 
-        if (trimmedContent.length() > 2000) {
+        if (trimmed.length() > 2000) {
             throw new IllegalArgumentException(
                     "Comment cannot exceed 2000 characters");
         }
 
-        User agent = getAgent(agentEmail);
-        Ticket ticket = getAssignedTicket(ticketId, agent);
+        return trimmed;
+    }
+
+    @Override
+    public Comment addComment(
+            Integer ticketId,
+            String userEmail,
+            String content) {
+
+        User user = getActiveUser(userEmail);
+        Ticket ticket = getAccessibleTicket(ticketId, user);
 
         Comment comment = new Comment();
         comment.setTicket(ticket);
-        comment.setUser(agent);
-        comment.setContent(trimmedContent);
+        comment.setUser(user);
+        comment.setContent(validateContent(content));
 
         return commentRepository.save(comment);
     }
@@ -83,13 +99,75 @@ public class CommentServiceImpl implements CommentService {
     @Transactional(readOnly = true)
     public Page<Comment> getTicketComments(
             Integer ticketId,
-            String agentEmail,
+            String userEmail,
             Pageable pageable) {
 
-        User agent = getAgent(agentEmail);
-        Ticket ticket = getAssignedTicket(ticketId, agent);
+        User user = getActiveUser(userEmail);
+        Ticket ticket = getAccessibleTicket(ticketId, user);
 
         return commentRepository
                 .findByTicketOrderByCreatedAtDesc(ticket, pageable);
+    }
+
+    @Override
+    public Comment updateComment(
+            Integer ticketId,
+            Integer commentId,
+            String userEmail,
+            String content) {
+
+        User user = getActiveUser(userEmail);
+        Ticket ticket = getAccessibleTicket(ticketId, user);
+
+        Comment comment = commentRepository.findById(commentId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "Comment not found"));
+
+        if (!comment.getTicket().getId().equals(ticket.getId())) {
+            throw new TicketNotFoundException(
+                    "Comment does not belong to this ticket");
+        }
+
+        if (!comment.getUser().getId().equals(user.getId())) {
+            throw new AccessDeniedException(
+                    "Only the comment author can edit it");
+        }
+
+        comment.setContent(validateContent(content));
+
+        return commentRepository.save(comment);
+    }
+
+    @Override
+    public void deleteComment(
+            Integer ticketId,
+            Integer commentId,
+            String userEmail) {
+
+        User user = getActiveUser(userEmail);
+        Ticket ticket = getAccessibleTicket(ticketId, user);
+
+        Comment comment = commentRepository.findById(commentId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "Comment not found"));
+
+        if (!comment.getTicket().getId().equals(ticket.getId())) {
+            throw new TicketNotFoundException(
+                    "Comment does not belong to this ticket");
+        }
+
+        boolean isAuthor =
+                comment.getUser().getId().equals(user.getId());
+
+        boolean isAdmin = user.getRole() == Role.ADMIN;
+
+        if (!isAuthor && !isAdmin) {
+            throw new AccessDeniedException(
+                    "Only the comment author or an admin can delete it");
+        }
+
+        commentRepository.delete(comment);
     }
 }

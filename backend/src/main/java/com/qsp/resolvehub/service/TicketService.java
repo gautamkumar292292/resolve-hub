@@ -80,4 +80,9 @@ public interface TicketService {
             Integer ticketId,
             String employeeEmail
     );
+
+    Ticket getTicketForCurrentUser(
+            Integer ticketId,
+            String currentUserEmail
+    );
 }

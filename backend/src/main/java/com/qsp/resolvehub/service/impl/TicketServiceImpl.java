@@ -1,4 +1,3 @@
-
 package com.qsp.resolvehub.service.impl;
 
 import com.qsp.resolvehub.dto.request.TicketRequest;
@@ -470,5 +469,40 @@ public class TicketServiceImpl implements TicketService {
         recordStatusChange(savedTicket, oldStatus, employeeEmail);
 
         return savedTicket;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Ticket getTicketForCurrentUser(
+            Integer ticketId,
+            String currentUserEmail) {
+
+        User user = userRepository.findByEmail(currentUserEmail)
+                .orElseThrow(() ->
+                        new UserNotFoundException("User not found"));
+
+        if (!user.isAccount_status()) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Your account is inactive");
+        }
+
+        return switch (user.getRole()) {
+            case EMPLOYEE ->
+                    ticketRepository.findByIdAndRequester(ticketId, user)
+                            .orElseThrow(() ->
+                                    new TicketNotFoundException(
+                                            "Ticket not found"));
+
+            case AGENT ->
+                    ticketRepository.findByIdAndAssignedTo(ticketId, user)
+                            .orElseThrow(() ->
+                                    new TicketNotFoundException(
+                                            "Ticket not found"));
+
+            case ADMIN -> ticketRepository.findById(ticketId)
+                    .orElseThrow(() ->
+                            new TicketNotFoundException(
+                                    "Ticket not found"));
+        };
     }
 }
