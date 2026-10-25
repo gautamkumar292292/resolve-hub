@@ -40,12 +40,6 @@ public class AdminController {
     private final AgentWorkloadService agentWorkloadService;
     private final AutoAssignmentService autoAssignmentService;
 
-    // Get all admins publicly.
-    @GetMapping("/public/admins")
-    @PreAuthorize("permitAll()")
-    public ResponseEntity<List<UserResponse>> getAllAdmins() {
-        return ResponseEntity.ok(userService.getAllAdmins());
-    }
 
     // Get the currently authenticated admin.
     @GetMapping("/me")

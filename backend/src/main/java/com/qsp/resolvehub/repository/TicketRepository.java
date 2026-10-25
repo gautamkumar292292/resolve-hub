@@ -61,7 +61,11 @@ public interface TicketRepository
 
     // Lock a ticket during a status transition
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT t FROM Ticket t WHERE t.id = :ticketId")
+    @Query("""
+       SELECT t FROM Ticket t
+       WHERE t.id = :ticketId
+       AND t.deleted = false
+       """)
     Optional<Ticket> findByIdForUpdate(
             @Param("ticketId") Integer ticketId
     );
@@ -88,4 +92,62 @@ public interface TicketRepository
             User requester,
             TicketStatus status
     );
+
+    // Active ticket lookups
+    Optional<Ticket> findByIdAndDeletedFalse(Integer id);
+
+    Optional<Ticket> findByIdAndAssignedToAndDeletedFalse(
+            Integer id, User assignedTo);
+
+    Optional<Ticket> findByIdAndRequesterAndDeletedFalse(
+            Integer id, User requester);
+
+    // Active agent ticket lists
+    Page<Ticket> findByAssignedToAndDeletedFalse(
+            User assignedTo, Pageable pageable);
+
+    Page<Ticket> findByAssignedToAndStatusAndDeletedFalse(
+            User assignedTo, TicketStatus status, Pageable pageable);
+
+    // Active employee ticket lists
+    Page<Ticket> findByRequesterAndDeletedFalse(
+            User requester, Pageable pageable);
+
+    // Active admin ticket lists
+    Page<Ticket> findByDeletedFalse(Pageable pageable);
+
+    Page<Ticket> findByStatusAndDeletedFalse(
+            TicketStatus status, Pageable pageable);
+
+    // Active ticket search
+    Page<Ticket> findByTitleContainingIgnoreCaseAndDeletedFalse(
+            String title, Pageable pageable);
+
+    Page<Ticket> findByPriorityAndDeletedFalse(
+            TicketPriority priority, Pageable pageable);
+
+    Optional<Ticket> findByTicketNumberAndDeletedFalse(
+            String ticketNumber);
+    long countByStatusAndDeletedFalse(TicketStatus status);
+
+    long countByAssignedToAndStatusAndDeletedFalse(
+            User assignedTo, TicketStatus status);
+
+    long countByAssignedToAndPriorityAndDeletedFalse(
+            User assignedTo, TicketPriority priority);
+
+    long countByAssignedToAndDeletedFalse(User assignedTo);
+
+    long countByRequesterAndDeletedFalse(User requester);
+
+    long countByRequesterAndStatusAndDeletedFalse(
+            User requester, TicketStatus status);
+
+    long countByAssignedToIsNotNullAndDeletedFalse();
+
+    long countByAssignedToIsNullAndDeletedFalse();
+
+    long countByAssignedToAndStatusInAndDeletedFalse(
+            User assignedTo, Collection<TicketStatus> statuses);
+
 }

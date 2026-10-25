@@ -74,8 +74,7 @@ public class SecurityConfig {
                         // Public authentication endpoints
                         .requestMatchers(
                                 "/api/auth/register",
-                                "/api/auth/login",
-                                "/api/admin/public/admins"
+                                "/api/auth/login"
                         ).permitAll()
 
                         // Authenticated users of any role

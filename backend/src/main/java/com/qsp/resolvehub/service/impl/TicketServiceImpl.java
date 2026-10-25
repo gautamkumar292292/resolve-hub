@@ -99,12 +99,10 @@ public class TicketServiceImpl implements TicketService {
     private Ticket getTicketOrThrow(Integer ticketId) {
         validateTicketId(ticketId);
 
-        return ticketRepository.findById(ticketId)
+        return ticketRepository.findByIdAndDeletedFalse(ticketId)
                 .orElseThrow(() ->
                         new TicketNotFoundException(
-                                "Ticket not found with ID: " + ticketId
-                        )
-                );
+                                "Ticket not found with ID: " + ticketId));
     }
 
     private Ticket getAssignedTicket(
@@ -114,27 +112,11 @@ public class TicketServiceImpl implements TicketService {
         validateTicketId(ticketId);
         User agent = getAgent(agentEmail);
 
-        return ticketRepository.findByIdAndAssignedTo(ticketId, agent)
+        return ticketRepository
+                .findByIdAndAssignedToAndDeletedFalse(ticketId, agent)
                 .orElseThrow(() ->
                         new TicketNotFoundException(
-                                "Ticket not found or not assigned to you"
-                        )
-                );
-    }
-
-    private Ticket getEmployeeTicket(
-            Integer ticketId,
-            String employeeEmail) {
-
-        validateTicketId(ticketId);
-        User employee = getEmployee(employeeEmail);
-
-        return ticketRepository.findByIdAndRequester(ticketId, employee)
-                .orElseThrow(() ->
-                        new TicketNotFoundException(
-                                "Ticket not found or does not belong to you"
-                        )
-                );
+                                "Ticket not found or not assigned to you"));
     }
 
     private Category getActiveCategory(Integer categoryId) {
@@ -237,7 +219,8 @@ public class TicketServiceImpl implements TicketService {
 
         User agent = getAgent(agentEmail);
 
-        return ticketRepository.findByAssignedTo(agent, pageable);
+        return ticketRepository.findByAssignedToAndDeletedFalse(
+                agent, pageable);
     }
 
     @Override
@@ -249,15 +232,27 @@ public class TicketServiceImpl implements TicketService {
 
         if (status == null) {
             throw new IllegalArgumentException(
-                    "Ticket status is required"
-            );
+                    "Ticket status is required");
         }
 
         User agent = getAgent(agentEmail);
 
-        return ticketRepository.findByAssignedToAndStatus(
-                agent, status, pageable
-        );
+        return ticketRepository.findByAssignedToAndStatusAndDeletedFalse(
+                agent, status, pageable);
+    }
+
+    private Ticket getEmployeeTicket(
+            Integer ticketId,
+            String employeeEmail) {
+
+        validateTicketId(ticketId);
+        User employee = getEmployee(employeeEmail);
+
+        return ticketRepository
+                .findByIdAndRequesterAndDeletedFalse(ticketId, employee)
+                .orElseThrow(() ->
+                        new TicketNotFoundException(
+                                "Ticket not found or does not belong to you"));
     }
 
     @Override
@@ -387,14 +382,32 @@ public class TicketServiceImpl implements TicketService {
 
         Ticket ticket = getTicketOrThrow(ticketId);
 
-        // Apply the same safety restriction as employee deletion.
         if (ticket.getStatus() != TicketStatus.OPEN
                 || ticket.getAssignedTo() != null) {
             throw new IllegalStateException(
                     "Only OPEN, unassigned tickets can be deleted");
         }
 
-        ticketRepository.delete(ticket);
+        ticket.setDeleted(true);
+        ticketRepository.save(ticket);
+    }
+
+    @Override
+    @Transactional
+    public void deleteMyTicket(
+            Integer ticketId,
+            String employeeEmail) {
+
+        Ticket ticket = getEmployeeTicket(ticketId, employeeEmail);
+
+        if (ticket.getStatus() != TicketStatus.OPEN
+                || ticket.getAssignedTo() != null) {
+            throw new IllegalStateException(
+                    "Only OPEN, unassigned tickets can be deleted");
+        }
+
+        ticket.setDeleted(true);
+        ticketRepository.save(ticket);
     }
 
     @Override
@@ -437,10 +450,11 @@ public class TicketServiceImpl implements TicketService {
             Pageable pageable) {
 
         if (status == null) {
-            return ticketRepository.findAll(pageable);
+            return ticketRepository.findByDeletedFalse(pageable);
         }
 
-        return ticketRepository.findByStatus(status, pageable);
+        return ticketRepository.findByStatusAndDeletedFalse(
+                status, pageable);
     }
 
     @Override
@@ -448,6 +462,7 @@ public class TicketServiceImpl implements TicketService {
     public Ticket getTicketById(Integer ticketId) {
         return getTicketOrThrow(ticketId);
     }
+
 
     /**
      * Handles workflow transitions that do not require assignment changes.
@@ -516,7 +531,6 @@ public class TicketServiceImpl implements TicketService {
         return saved;
     }
 
-
     // -------------------- Employee operations --------------------
 
     @Override
@@ -552,7 +566,8 @@ public class TicketServiceImpl implements TicketService {
 
         User employee = getEmployee(employeeEmail);
 
-        return ticketRepository.findByRequester(employee, pageable);
+        return ticketRepository.findByRequesterAndDeletedFalse(
+                employee, pageable);
     }
 
     @Override
@@ -622,23 +637,6 @@ public class TicketServiceImpl implements TicketService {
     }
 
     @Override
-    public void deleteMyTicket(
-            Integer ticketId,
-            String employeeEmail) {
-
-        Ticket ticket = getEmployeeTicket(ticketId, employeeEmail);
-
-        if (ticket.getStatus() != TicketStatus.OPEN
-                || ticket.getAssignedTo() != null) {
-            throw new IllegalStateException(
-                    "Only OPEN, unassigned tickets can be deleted"
-            );
-        }
-
-        ticketRepository.delete(ticket);
-    }
-
-    @Override
     public Ticket reopenMyTicket(
             Integer ticketId,
             String employeeEmail) {
@@ -675,26 +673,25 @@ public class TicketServiceImpl implements TicketService {
 
         if (!user.isEnabled()) {
             throw new AccessDeniedException(
-                    "Your account is inactive"
-            );
+                    "Your account is inactive");
         }
 
         return switch (user.getRole()) {
             case EMPLOYEE ->
-                    ticketRepository.findByIdAndRequester(ticketId, user)
+                    ticketRepository
+                            .findByIdAndRequesterAndDeletedFalse(
+                                    ticketId, user)
                             .orElseThrow(() ->
                                     new TicketNotFoundException(
-                                            "Ticket not found"
-                                    )
-                            );
+                                            "Ticket not found"));
 
             case AGENT ->
-                    ticketRepository.findByIdAndAssignedTo(ticketId, user)
+                    ticketRepository
+                            .findByIdAndAssignedToAndDeletedFalse(
+                                    ticketId, user)
                             .orElseThrow(() ->
                                     new TicketNotFoundException(
-                                            "Ticket not found"
-                                    )
-                            );
+                                            "Ticket not found"));
 
             case ADMIN -> getTicketOrThrow(ticketId);
         };
@@ -741,8 +738,11 @@ public class TicketServiceImpl implements TicketService {
                 TicketSpecification.search(search)
                         .and(TicketSpecification.hasStatus(status))
                         .and(TicketSpecification.hasPriority(priority))
-                        .and(TicketSpecification.hasCategory(categoryId));
+                        .and(TicketSpecification.hasCategory(categoryId))
+                        .and((root, query, cb)
+                                -> cb.isFalse(root.get("deleted")));
 
+        
         if (user.getRole() == Role.AGENT) {
             if (assignedTo != null
                     && !assignedTo.equals(user.getId())) {
@@ -773,10 +773,10 @@ public class TicketServiceImpl implements TicketService {
                     "Title search term cannot be blank"
             );
         }
+        return ticketRepository
+                .findByTitleContainingIgnoreCaseAndDeletedFalse(
+                        title.trim(), pageable);
 
-        return ticketRepository.findByTitleContainingIgnoreCase(
-                title.trim(), pageable
-        );
     }
 
     @Override
@@ -791,7 +791,8 @@ public class TicketServiceImpl implements TicketService {
             );
         }
 
-        return ticketRepository.findByPriority(priority, pageable);
+        return ticketRepository.findByPriorityAndDeletedFalse(
+                priority, pageable);
     }
 
     @Override
@@ -823,7 +824,7 @@ public class TicketServiceImpl implements TicketService {
             );
         }
 
-        return ticketRepository.countByAssignedTo(agent);
+        return ticketRepository.countByAssignedToAndDeletedFalse(agent);
     }
 
     @Override
@@ -836,12 +837,12 @@ public class TicketServiceImpl implements TicketService {
             );
         }
 
-        return ticketRepository.findByTicketNumber(ticketNumber.trim())
+        return ticketRepository
+                .findByTicketNumberAndDeletedFalse(ticketNumber.trim())
                 .orElseThrow(() ->
                         new TicketNotFoundException(
                                 "Ticket not found with number: "
-                                        + ticketNumber
-                        )
-                );
+                                        + ticketNumber));
     }
+
 }

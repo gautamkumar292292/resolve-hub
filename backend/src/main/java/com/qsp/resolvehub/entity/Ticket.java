@@ -68,4 +68,7 @@ public class Ticket {
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
     }
+
+    @Column(name = "deleted", nullable = false)
+    private boolean deleted = false;
 }
