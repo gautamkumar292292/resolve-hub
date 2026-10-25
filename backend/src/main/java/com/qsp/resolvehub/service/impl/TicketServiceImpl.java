@@ -307,14 +307,11 @@ public class TicketServiceImpl implements TicketService {
                     newStatus == TicketStatus.ASSIGNED;
 
             case ASSIGNED ->
-                    newStatus == TicketStatus.IN_PROGRESS
-                            || newStatus == TicketStatus.OPEN
-                            || newStatus == TicketStatus.CLOSED;
+                    newStatus == TicketStatus.IN_PROGRESS;
 
             case IN_PROGRESS ->
-                    newStatus == TicketStatus.RESOLVED
-                            || newStatus == TicketStatus.ASSIGNED
-                            || newStatus == TicketStatus.CLOSED;
+                    newStatus == TicketStatus.ASSIGNED
+                            || newStatus == TicketStatus.RESOLVED;
 
             case RESOLVED ->
                     newStatus == TicketStatus.CLOSED
@@ -324,8 +321,7 @@ public class TicketServiceImpl implements TicketService {
                     newStatus == TicketStatus.REOPENED;
 
             case REOPENED ->
-                    newStatus == TicketStatus.ASSIGNED
-                            || newStatus == TicketStatus.CLOSED;
+                    newStatus == TicketStatus.ASSIGNED;
         };
 
         if (oldStatus == newStatus || !validTransition) {
@@ -362,6 +358,8 @@ public class TicketServiceImpl implements TicketService {
         Category category = getActiveCategory(request.categoryId());
 
         Ticket ticket = new Ticket();
+
+        ticket.setPriority(request.priority());
         ticket.setTicketNumber(generateTicketNumber());
         ticket.setTitle(request.title().trim());
         ticket.setDescription(request.description().trim());
@@ -369,6 +367,7 @@ public class TicketServiceImpl implements TicketService {
         ticket.setRequester(employee);
         ticket.setStatus(TicketStatus.OPEN);
         ticket.setAssignedTo(null);
+        ticket.setResolvedAt(null);
 
         return ticketRepository.save(ticket);
     }
@@ -383,6 +382,12 @@ public class TicketServiceImpl implements TicketService {
         return ticketRepository.findByRequester(employee, pageable);
     }
 
+    private void validateTicketId(Integer ticketId) {
+        if (ticketId == null || ticketId <= 0) {
+            throw new IllegalArgumentException(
+                    "Ticket ID must be a positive number");
+        }
+    }
 
 
     @Override
@@ -497,14 +502,10 @@ public class TicketServiceImpl implements TicketService {
 
         ticketRepository.delete(ticket);
     }
-
-
-
-
+    
     @Override
-    public Ticket reopenMyTicket(
-            Integer ticketId,
-            String employeeEmail) {
+    public Ticket reopenMyTicket(Integer ticketId, String employeeEmail) {
+        validateTicketId(ticketId);
 
         Ticket ticket = getEmployeeTicket(ticketId, employeeEmail);
 
@@ -701,6 +702,7 @@ public class TicketServiceImpl implements TicketService {
                         new TicketNotFoundException(
                                 "Ticket not found with number: " + ticketNumber));
     }
+
 
 
 }
