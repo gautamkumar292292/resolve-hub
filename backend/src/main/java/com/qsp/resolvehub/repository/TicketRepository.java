@@ -1,4 +1,3 @@
-
 package com.qsp.resolvehub.repository;
 
 import com.qsp.resolvehub.entity.Ticket;
@@ -36,8 +35,6 @@ public interface TicketRepository
     // Ticket validation and lookup
     boolean existsByTicketNumber(String ticketNumber);
 
-    Optional<Ticket> findByTicketNumber(String ticketNumber);
-
     // Ticket counts
     long countByAssignedToAndStatus(User assignedTo, TicketStatus status);
 
@@ -49,8 +46,6 @@ public interface TicketRepository
 
     long countByAssignedToIsNull();
 
-    long countByAssignedTo(User assignedTo);
-
     long countByAssignedToAndStatusIn(
             User assignedTo,
             Collection<TicketStatus> statuses
@@ -58,13 +53,6 @@ public interface TicketRepository
 
     // Admin filtering
     Page<Ticket> findByStatus(TicketStatus status, Pageable pageable);
-
-    Page<Ticket> findByTitleContainingIgnoreCase(
-            String title,
-            Pageable pageable
-    );
-
-    Page<Ticket> findByPriority(TicketPriority priority, Pageable pageable);
 
     // Employee ticket queries
     Page<Ticket> findByRequester(User requester, Pageable pageable);
@@ -77,4 +65,21 @@ public interface TicketRepository
     Optional<Ticket> findByIdForUpdate(
             @Param("ticketId") Integer ticketId
     );
+
+
+
+    Page<Ticket> findByTitleContainingIgnoreCase(
+            String title,
+            Pageable pageable
+    );
+
+    Page<Ticket> findByPriority(
+            TicketPriority priority,
+            Pageable pageable
+    );
+
+    long countByAssignedTo(User assignedTo);
+
+    Optional<Ticket> findByTicketNumber(String ticketNumber);
+
 }

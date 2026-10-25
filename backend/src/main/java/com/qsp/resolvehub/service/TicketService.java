@@ -4,6 +4,7 @@ package com.qsp.resolvehub.service;
 import com.qsp.resolvehub.dto.request.TicketRequest;
 import com.qsp.resolvehub.dto.response.TicketResponse;
 import com.qsp.resolvehub.entity.Ticket;
+import com.qsp.resolvehub.entity.TicketPriority;
 import com.qsp.resolvehub.entity.TicketStatus;
 import jakarta.annotation.Priority;
 import org.springframework.data.domain.Page;
@@ -57,10 +58,6 @@ public interface TicketService {
             Pageable pageable
     );
 
-    Ticket getMyEmployeeTicketById(
-            Integer ticketId,
-            String employeeEmail
-    );
 
     Ticket updateMyTicket(
             Integer ticketId,
@@ -88,10 +85,38 @@ public interface TicketService {
             String currentUserEmail
     );
 
+
     Page<TicketResponse> searchTickets(
+            String search,
             TicketStatus status,
-            Priority priority,
-            String keyword,
+            TicketPriority priority,
+            Integer categoryId,
+            Integer assignedTo,
+            Pageable pageable,
+            String currentUserEmail
+    );
+
+
+    // Employee operations
+    Ticket getMyEmployeeTicketById(
+            Integer ticketId,
+            String employeeEmail
+    );
+
+    // Search and filtering
+    Page<Ticket> searchTicketsByTitle(
+            String title,
             Pageable pageable
     );
+
+    Page<Ticket> getTicketsByPriority(
+            TicketPriority priority,
+            Pageable pageable
+    );
+
+    // Agent statistics
+    long countTicketsAssignedTo(Integer agentId);
+
+    // Ticket lookup
+    Ticket getTicketByTicketNumber(String ticketNumber);
 }

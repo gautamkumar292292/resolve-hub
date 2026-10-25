@@ -3,13 +3,11 @@ package com.qsp.resolvehub.controller;
 import com.qsp.resolvehub.dto.request.TicketRequest;
 import com.qsp.resolvehub.dto.response.TicketResponse;
 import com.qsp.resolvehub.entity.Ticket;
+import com.qsp.resolvehub.entity.TicketPriority;
 import com.qsp.resolvehub.entity.TicketStatus;
 import com.qsp.resolvehub.service.TicketService;
-
-import jakarta.annotation.Priority;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -57,19 +55,32 @@ public class TicketController {
         return ResponseEntity.ok(tickets);
     }
 
-    // ADMIN / AGENT: View all tickets
     @GetMapping("/tickets")
     @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")
     public ResponseEntity<Page<TicketResponse>> getAllTickets(
+            @RequestParam(required = false) String search,
             @RequestParam(required = false) TicketStatus status,
-            @PageableDefault(size = 10, sort = "createdAt")
-            Pageable pageable) {
+            @RequestParam(required = false) TicketPriority priority,
+            @RequestParam(required = false) Integer categoryId,
+            @RequestParam(required = false) Integer assignedTo,
+            @PageableDefault(
+                    size = 10,
+                    sort = "createdAt",
+                    direction = Sort.Direction.DESC
+            ) Pageable pageable,
+            Authentication authentication) {
 
-        Page<TicketResponse> tickets =
-                ticketService.getAllTickets(status, pageable)
-                        .map(TicketResponse::from);
-
-        return ResponseEntity.ok(tickets);
+        return ResponseEntity.ok(
+                ticketService.searchTickets(
+                        search,
+                        status,
+                        priority,
+                        categoryId,
+                        assignedTo,
+                        pageable,
+                        authentication.getName()
+                )
+        );
     }
 
     // Authenticated user: View a ticket they are authorized to access
@@ -140,22 +151,68 @@ public class TicketController {
     }
 
 
-    @GetMapping("/search")
-    @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")
-    public ResponseEntity<Page<TicketResponse>> searchTickets(
-            @RequestParam(required = false) TicketStatus status,
-            @RequestParam(required = false) Priority priority,
-            @RequestParam(required = false) String keyword,
-            @PageableDefault(
-                    size = 10,
-                    sort = "createdAt",
-                    direction = Sort.Direction.DESC
-            ) Pageable pageable) {
+    // Employee: get a ticket by ID
+    @GetMapping("/employee/tickets/{ticketId}")
+    @PreAuthorize("hasRole('EMPLOYEE')")
+    public ResponseEntity<TicketResponse> getMyEmployeeTicketById(
+            @PathVariable Integer ticketId,
+            Authentication authentication) {
 
-        return ResponseEntity.ok(
-                ticketService.searchTickets(
-                        status, priority, keyword, pageable)
-        );
+        Ticket ticket = ticketService.getMyEmployeeTicketById(
+                ticketId, authentication.getName());
+
+        return ResponseEntity.ok(TicketResponse.from(ticket));
     }
 
+    // Admin: search tickets by title
+    @GetMapping("/tickets/search/title")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Page<TicketResponse>> searchTicketsByTitle(
+            @RequestParam String title,
+            @PageableDefault(size = 10, sort = "createdAt",
+                    direction = Sort.Direction.DESC) Pageable pageable) {
+
+        Page<TicketResponse> result =
+                ticketService.searchTicketsByTitle(title, pageable)
+                        .map(TicketResponse::from);
+
+        return ResponseEntity.ok(result);
+    }
+
+    // Admin: filter tickets by priority
+    @GetMapping("/tickets/filter/priority")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Page<TicketResponse>> getTicketsByPriority(
+            @RequestParam TicketPriority priority,
+            @PageableDefault(size = 10, sort = "createdAt",
+                    direction = Sort.Direction.DESC) Pageable pageable) {
+
+        Page<TicketResponse> result =
+                ticketService.getTicketsByPriority(priority, pageable)
+                        .map(TicketResponse::from);
+
+        return ResponseEntity.ok(result);
+    }
+
+    // Admin: count tickets assigned to an agent
+    @GetMapping("/agents/{agentId}/tickets/count")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Long> countTicketsAssignedTo(
+            @PathVariable Integer agentId) {
+
+        return ResponseEntity.ok(
+                ticketService.countTicketsAssignedTo(agentId));
+    }
+
+    // Admin: find a ticket by its ticket number
+    @GetMapping("/tickets/number/{ticketNumber}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<TicketResponse> getTicketByTicketNumber(
+            @PathVariable String ticketNumber) {
+
+        Ticket ticket =
+                ticketService.getTicketByTicketNumber(ticketNumber);
+
+        return ResponseEntity.ok(TicketResponse.from(ticket));
+    }
 }
