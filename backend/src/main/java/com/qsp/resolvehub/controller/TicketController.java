@@ -1,6 +1,7 @@
 
 package com.qsp.resolvehub.controller;
 
+import com.qsp.resolvehub.dto.response.TicketResponse;
 import com.qsp.resolvehub.entity.Ticket;
 import com.qsp.resolvehub.service.TicketService;
 
@@ -21,7 +22,7 @@ public class TicketController {
     // EMPLOYEE: Close their own resolved ticket
     @PatchMapping("/employee/tickets/{ticketId}/close")
     @PreAuthorize("hasRole('EMPLOYEE')")
-    public ResponseEntity<Ticket> closeMyTicket(
+    public ResponseEntity<TicketResponse> closeMyTicket(
             @PathVariable Integer ticketId,
             Authentication authentication) {
 
@@ -30,13 +31,13 @@ public class TicketController {
                 authentication.getName()
         );
 
-        return ResponseEntity.ok(ticket);
+        return ResponseEntity.ok(TicketResponse.from(ticket));
     }
 
     // EMPLOYEE: Reopen their own closed ticket
     @PatchMapping("/employee/tickets/{ticketId}/reopen")
     @PreAuthorize("hasRole('EMPLOYEE')")
-    public ResponseEntity<Ticket> reopenMyTicket(
+    public ResponseEntity<TicketResponse> reopenMyTicket(
             @PathVariable Integer ticketId,
             Authentication authentication) {
 
@@ -45,6 +46,6 @@ public class TicketController {
                 authentication.getName()
         );
 
-        return ResponseEntity.ok(ticket);
+        return ResponseEntity.ok(TicketResponse.from(ticket));
     }
 }

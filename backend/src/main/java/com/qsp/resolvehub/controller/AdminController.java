@@ -8,6 +8,7 @@ import com.qsp.resolvehub.dto.response.AdminDashboardResponse;
 import com.qsp.resolvehub.dto.response.AgentWorkloadResponse;
 import com.qsp.resolvehub.dto.response.TicketResponse;
 import com.qsp.resolvehub.dto.response.UserResponse;
+import com.qsp.resolvehub.entity.Ticket;
 import com.qsp.resolvehub.entity.User;
 import com.qsp.resolvehub.service.*;
 import org.springframework.security.core.Authentication;
@@ -196,12 +197,14 @@ public class AdminController {
     @PostMapping("/tickets/{ticketId}/auto-assign")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<TicketResponse> autoAssignTicket(
-            @PathVariable Integer ticketId) {
+            @PathVariable Integer ticketId,
+            Authentication authentication) {
 
-        return ResponseEntity.ok(
-                TicketResponse.from(
-                        autoAssignmentService.assignToLeastBusyAgent(ticketId)
-                )
+        Ticket ticket = autoAssignmentService.assignToLeastBusyAgent(
+                ticketId,
+                authentication.getName()
         );
+
+        return ResponseEntity.ok(TicketResponse.from(ticket));
     }
 }

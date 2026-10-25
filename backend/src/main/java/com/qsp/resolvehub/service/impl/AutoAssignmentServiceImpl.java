@@ -28,14 +28,8 @@ public class AutoAssignmentServiceImpl implements AutoAssignmentService {
     private final TicketHistoryService ticketHistoryService;
 
     @Override
-    public Ticket assignToLeastBusyAgent(Integer ticketId) {
-        return null;
-    }
-
-    @Override
     @Transactional
-    public Ticket assignToLeastBusyAgent(
-            Integer ticketId, String adminEmail) {
+    public Ticket assignToLeastBusyAgent(Integer ticketId, String adminEmail){
 
         // Fetch and lock the ticket.
         Ticket ticket = ticketRepository.findByIdForUpdate(ticketId)
