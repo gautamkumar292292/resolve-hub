@@ -150,4 +150,8 @@ public interface TicketRepository
     long countByAssignedToAndStatusInAndDeletedFalse(
             User assignedTo, Collection<TicketStatus> statuses);
 
+    Page<Ticket> findByCategoryIdAndDeletedFalse(
+            Integer categoryId,
+            Pageable pageable
+    );
 }

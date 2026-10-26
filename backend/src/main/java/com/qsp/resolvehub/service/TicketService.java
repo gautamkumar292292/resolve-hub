@@ -117,9 +117,11 @@ public interface TicketService {
     );
 
     Page<Ticket> searchTicketsByTitle(
-            String title,
-            Pageable pageable
-    );
+            String title, Pageable pageable);
+
+    Page<TicketResponse> searchTicketResponsesByTitle(
+            String title, Pageable pageable);
+
 
     Page<Ticket> getTicketsByPriority(
             TicketPriority priority,
@@ -151,4 +153,39 @@ public interface TicketService {
     TicketResponse startTicketResponse(Integer ticketId, String agentEmail);
 
     TicketResponse resolveTicketResponse(Integer ticketId, String agentEmail);
+
+    Page<TicketResponse> getMyEmployeeTicketResponses(
+            String employeeEmail,
+            Pageable pageable
+    );
+
+    TicketResponse getMyEmployeeTicketResponseById(
+            Integer ticketId,
+            String employeeEmail
+    );
+
+    TicketResponse assignTicketResponse(
+            Integer ticketId,
+            Integer agentId,
+            String adminEmail
+    );
+
+    TicketResponse closeMyTicketResponse(Integer ticketId, String employeeEmail);
+
+    Page<TicketResponse> getTicketResponsesByPriority(
+            TicketPriority priority,
+            Pageable pageable
+    );
+
+    Page<TicketResponse> getTicketResponsesByStatus(
+            TicketStatus status,
+            Pageable pageable
+    );
+
+    Page<TicketResponse> getTicketResponsesByCategory(
+            Integer categoryId,
+            Pageable pageable
+    );
+
+
 }

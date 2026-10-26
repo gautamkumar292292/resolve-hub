@@ -16,6 +16,8 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
@@ -45,7 +47,7 @@ public class GlobalExceptionHandler {
                 .timestamp(LocalDateTime.now())
                 .status(HttpStatus.BAD_REQUEST.value())
                 .error(HttpStatus.BAD_REQUEST.getReasonPhrase())
-                .message("Request validation failed")
+                .message("Request validation failed  ")
                 .path(request.getRequestURI())
                 .validationErrors(errors)
                 .build();
@@ -205,5 +207,47 @@ public class GlobalExceptionHandler {
                 .build();
 
         return ResponseEntity.status(status).body(response);
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ErrorResponse> handleResponseStatusException(
+            ResponseStatusException ex,
+            HttpServletRequest request) {
+
+        ErrorResponse error = new ErrorResponse(
+                LocalDateTime.now(),
+                ex.getStatusCode().value(),
+                ex.getStatusCode().toString(),
+                ex.getReason(),
+                request.getRequestURI(),
+                null
+        );
+
+        return ResponseEntity
+                .status(ex.getStatusCode())
+                .body(error);
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ErrorResponse> handleTypeMismatch(
+            MethodArgumentTypeMismatchException ex,
+            HttpServletRequest request) {
+
+        String message;
+
+        if (ex.getRequiredType() != null
+                && ex.getRequiredType().isEnum()) {
+
+            message = "Invalid value '" + ex.getValue()
+                    + "' for parameter '" + ex.getName() + "'";
+        } else {
+            message = "Invalid value for parameter '" + ex.getName() + "'";
+        }
+
+        return buildResponse(
+                HttpStatus.BAD_REQUEST,
+                message,
+                request
+        );
     }
 }

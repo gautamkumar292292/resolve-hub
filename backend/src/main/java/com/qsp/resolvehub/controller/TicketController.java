@@ -13,6 +13,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
@@ -22,6 +23,10 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.util.List;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api")
@@ -55,14 +60,14 @@ public class TicketController {
             Pageable pageable) {
 
         Page<TicketResponse> tickets =
-                ticketService.getMyEmployeeTickets(
-                                authentication.getName(), pageable)
-                        .map(TicketResponse::from);
+                ticketService.getMyEmployeeTicketResponses(
+                        authentication.getName(), pageable);
 
         return ResponseEntity.ok(tickets);
     }
 
     // ADMIN / AGENT: Search and filter tickets.
+
     @GetMapping("/tickets")
     @PreAuthorize("hasAnyRole('ADMIN', 'AGENT')")
     public ResponseEntity<Page<TicketResponse>> getAllTickets(
@@ -71,13 +76,70 @@ public class TicketController {
             @RequestParam(required = false) TicketPriority priority,
             @RequestParam(required = false) Integer categoryId,
             @RequestParam(required = false) Integer assignedTo,
-            @PageableDefault(
-                    size = 10,
-                    sort = "createdAt",
-                    direction = Sort.Direction.DESC)
-            Pageable pageable,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String sort,
             Authentication authentication) {
 
+        if (page < 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Page number cannot be negative"
+            );
+        }
+
+        if (size < 1) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Page size must be greater than 0"
+            );
+        }
+
+        Pageable pageable = PageRequest.of(
+                page,
+                size,
+                Sort.by(Sort.Order.desc("createdAt"))
+        );
+        if (sort != null && !sort.isBlank()) {
+            String[] parts = sort.split(",");
+
+            String property = parts[0].trim();
+
+            Set<String> allowedSortFields = Set.of(
+                    "id",
+                    "createdAt",
+                    "updatedAt",
+                    "title",
+                    "priority",
+                    "status"
+            );
+
+            if (!allowedSortFields.contains(property)) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Invalid sort field: " + property
+                );
+            }
+
+            Sort.Direction direction;
+
+            try {
+                direction = parts.length > 1
+                        ? Sort.Direction.fromString(parts[1].trim())
+                        : Sort.Direction.ASC;
+            } catch (IllegalArgumentException ex) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Invalid sort direction. Use 'asc' or 'desc'."
+                );
+            }
+
+            pageable = PageRequest.of(
+                    page,
+                    size,
+                    Sort.by(new Sort.Order(direction, property))
+            );
+        }
         return ResponseEntity.ok(
                 ticketService.searchTickets(
                         search,
@@ -86,8 +148,11 @@ public class TicketController {
                         categoryId,
                         assignedTo,
                         pageable,
-                        authentication.getName()));
+                        authentication.getName()
+                )
+        );
     }
+
 
     // ADMIN: Manually assign a ticket to an agent.
     // POST /api/tickets/{ticketId}/assign?agentId=5
@@ -98,12 +163,13 @@ public class TicketController {
             @RequestParam Integer agentId,
             @AuthenticationPrincipal User admin) {
 
-        Ticket ticket = ticketService.assignTicket(
+        TicketResponse response = ticketService.assignTicketResponse(
                 ticketId,
                 agentId,
-                admin.getEmail());
+                admin.getEmail()
+        );
 
-        return ResponseEntity.ok(TicketResponse.from(ticket));
+        return ResponseEntity.ok(response);
     }
 
     // ADMIN: Unassign a ticket.
@@ -163,6 +229,23 @@ public class TicketController {
         return ResponseEntity.noContent().build();
     }
 
+    // ADMIN: Update ticket status.
+    @PutMapping("/tickets/{ticketId}/status")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<TicketResponse> updateTicketStatus(
+            @PathVariable Integer ticketId,
+            @RequestParam TicketStatus status,
+            Authentication authentication) {
+
+        Ticket updatedTicket = ticketService.updateTicketStatus(
+                ticketId,
+                status,
+                authentication.getName()
+        );
+
+        return ResponseEntity.ok(TicketResponse.from(updatedTicket));
+    }
+
     // EMPLOYEE: Close own RESOLVED ticket.
     // Required route: POST /api/tickets/{ticketId}/close
 // EMPLOYEE / ADMIN: Close a resolved ticket.
@@ -171,13 +254,13 @@ public class TicketController {
     public ResponseEntity<TicketResponse> closeMyTicket(
             @PathVariable Integer ticketId,
             Authentication authentication) {
+        TicketResponse response =
+                ticketService.closeMyTicketResponse(
+                        ticketId,
+                        authentication.getName()
+                );
 
-        Ticket ticket = ticketService.closeMyTicket(
-                ticketId,
-                authentication.getName()
-        );
-
-        return ResponseEntity.ok(TicketResponse.from(ticket));
+        return ResponseEntity.ok(response);
     }
 
     // EMPLOYEE: Reopen own CLOSED ticket.
@@ -201,11 +284,32 @@ public class TicketController {
             @PathVariable Integer ticketId,
             Authentication authentication) {
 
-        Ticket ticket = ticketService.getMyEmployeeTicketById(
-                ticketId, authentication.getName());
+        TicketResponse response =
+                ticketService.getMyEmployeeTicketResponseById(
+                        ticketId, authentication.getName());
 
-        return ResponseEntity.ok(TicketResponse.from(ticket));
+        return ResponseEntity.ok(response);
     }
+
+    // ADMIN: Filter tickets by status.
+    @GetMapping("/tickets/filter/status")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Page<TicketResponse>> getTicketsByStatus(
+            @RequestParam TicketStatus status,
+            @PageableDefault(
+                    size = 10,
+                    sort = "createdAt",
+                    direction = Sort.Direction.DESC)
+            Pageable pageable) {
+
+        Page<TicketResponse> result =
+                ticketService.getTicketResponsesByStatus(
+                        status, pageable
+                );
+
+        return ResponseEntity.ok(result);
+    }
+
 
     // ADMIN: Search tickets by title.
     @GetMapping("/tickets/search/title")
@@ -218,11 +322,13 @@ public class TicketController {
                     direction = Sort.Direction.DESC)
             Pageable pageable) {
 
-        Page<TicketResponse> result =
-                ticketService.searchTicketsByTitle(title, pageable)
-                        .map(TicketResponse::from);
+        Page<TicketResponse> response =
+                ticketService.searchTicketResponsesByTitle(
+                        title,
+                        pageable
+                );
 
-        return ResponseEntity.ok(result);
+        return ResponseEntity.ok(response);
     }
 
     // ADMIN: Filter tickets by priority.
@@ -237,8 +343,9 @@ public class TicketController {
             Pageable pageable) {
 
         Page<TicketResponse> result =
-                ticketService.getTicketsByPriority(priority, pageable)
-                        .map(TicketResponse::from);
+                ticketService.getTicketResponsesByPriority(
+                        priority, pageable
+                );
 
         return ResponseEntity.ok(result);
     }
@@ -263,5 +370,24 @@ public class TicketController {
                 ticketService.getTicketResponseByTicketNumber(ticketNumber);
 
         return ResponseEntity.ok(response);
+    }
+
+    // ADMIN: Filter tickets by category.
+    @GetMapping("/tickets/filter/category")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Page<TicketResponse>> getTicketsByCategory(
+            @RequestParam Integer categoryId,
+            @PageableDefault(
+                    size = 10,
+                    sort = "createdAt",
+                    direction = Sort.Direction.DESC)
+            Pageable pageable) {
+
+        Page<TicketResponse> result =
+                ticketService.getTicketResponsesByCategory(
+                        categoryId, pageable
+                );
+
+        return ResponseEntity.ok(result);
     }
 }

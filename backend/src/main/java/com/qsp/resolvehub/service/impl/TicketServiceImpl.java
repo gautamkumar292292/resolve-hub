@@ -335,6 +335,94 @@ public class TicketServiceImpl implements TicketService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public Page<TicketResponse> getMyEmployeeTicketResponses(
+            String employeeEmail,
+            Pageable pageable) {
+
+        return getMyEmployeeTickets(employeeEmail, pageable)
+                .map(TicketResponse::from);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public TicketResponse getMyEmployeeTicketResponseById(
+            Integer ticketId,
+            String employeeEmail) {
+
+        Ticket ticket = getMyEmployeeTicketById(
+                ticketId, employeeEmail);
+
+        return TicketResponse.from(ticket);
+    }
+
+    @Override
+    @Transactional
+    public TicketResponse assignTicketResponse(
+            Integer ticketId,
+            Integer agentId,
+            String adminEmail) {
+
+        Ticket ticket = assignTicket(
+                ticketId,
+                agentId,
+                adminEmail
+        );
+
+        return TicketResponse.from(ticket);
+    }
+    @Override
+    @Transactional
+    public TicketResponse closeMyTicketResponse(
+            Integer ticketId,
+            String employeeEmail) {
+
+        Ticket ticket = closeMyTicket(ticketId, employeeEmail);
+        return TicketResponse.from(ticket);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<TicketResponse> getTicketResponsesByPriority(
+            TicketPriority priority,
+            Pageable pageable) {
+
+        Page<Ticket> tickets =
+                getTicketsByPriority(priority, pageable);
+
+        return tickets.map(TicketResponse::from);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<TicketResponse> getTicketResponsesByStatus(
+            TicketStatus status,
+            Pageable pageable) {
+
+        Page<Ticket> tickets =
+                ticketRepository.findByStatusAndDeletedFalse(
+                        status, pageable
+                );
+
+        return tickets.map(TicketResponse::from);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<TicketResponse> getTicketResponsesByCategory(
+            Integer categoryId,
+            Pageable pageable) {
+
+        Page<Ticket> tickets =
+                ticketRepository.findByCategoryIdAndDeletedFalse(
+                        categoryId, pageable
+                );
+
+        return tickets.map(TicketResponse::from);
+    }
+
+
+    @Override
     public Ticket startTicket(
             Integer ticketId,
             String agentEmail) {
@@ -843,11 +931,26 @@ public class TicketServiceImpl implements TicketService {
                     "Title search term cannot be blank"
             );
         }
+
         return ticketRepository
                 .findByTitleContainingIgnoreCaseAndDeletedFalse(
-                        title.trim(), pageable);
-
+                        title.trim(),
+                        pageable
+                );
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<TicketResponse> searchTicketResponsesByTitle(
+            String title,
+            Pageable pageable) {
+
+        Page<Ticket> tickets = searchTicketsByTitle(title, pageable);
+
+
+        return tickets.map(TicketResponse::from);
+    }
+
 
     @Override
     @Transactional(readOnly = true)
