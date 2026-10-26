@@ -36,7 +36,7 @@ public class EmployeeDashboardServiceImpl
         }
 
         long totalTickets =
-                ticketRepository.countByRequester(employee);
+                ticketRepository.countByRequesterAndDeletedFalse(employee);
 
         long openTickets =
                 ticketRepository.countByRequesterAndStatus(

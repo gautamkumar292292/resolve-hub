@@ -254,6 +254,7 @@ public class TicketServiceImpl implements TicketService {
                         new TicketNotFoundException(
                                 "Ticket not found or does not belong to you"));
     }
+// -------------------- Agent operations --------------------
 
     @Override
     @Transactional(readOnly = true)
@@ -262,6 +263,75 @@ public class TicketServiceImpl implements TicketService {
             String agentEmail) {
 
         return getAssignedTicket(ticketId, agentEmail);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Ticket getTicketById(Integer ticketId) {
+        return getTicketOrThrow(ticketId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public TicketResponse getTicketResponseById(
+            Integer ticketId,
+            String currentUserEmail) {
+
+        Ticket ticket = getTicketForCurrentUser(
+                ticketId,
+                currentUserEmail
+        );
+
+        return TicketResponse.from(ticket);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<TicketResponse> getMyTicketResponses(
+            String agentEmail,
+            TicketStatus status,
+            Pageable pageable) {
+
+        Page<Ticket> tickets;
+
+        if (status == null) {
+            tickets = getMyTickets(agentEmail, pageable);
+        } else {
+            tickets = getMyTicketsByStatus(agentEmail, status, pageable);
+        }
+
+        return tickets.map(TicketResponse::from);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public TicketResponse getMyTicketResponseById(
+            Integer ticketId,
+            String agentEmail) {
+
+        Ticket ticket = getMyTicketById(ticketId, agentEmail);
+
+        return TicketResponse.from(ticket);
+    }
+
+    @Override
+    @Transactional
+    public TicketResponse startTicketResponse(
+            Integer ticketId,
+            String agentEmail
+    ) {
+        Ticket ticket = startTicket(ticketId, agentEmail);
+        return TicketResponse.from(ticket);
+    }
+
+    @Override
+    @Transactional
+    public TicketResponse resolveTicketResponse(
+            Integer ticketId,
+            String agentEmail
+    ) {
+        Ticket ticket = resolveTicket(ticketId, agentEmail);
+        return TicketResponse.from(ticket);
     }
 
     @Override
@@ -327,10 +397,13 @@ public class TicketServiceImpl implements TicketService {
 
         Ticket ticket = getTicketOrThrow(ticketId);
 
+        System.out.println("DEBUG assignTicket: id=" + ticket.getId()
+                + ", status=" + ticket.getStatus()
+                + ", assignedTo=" + ticket.getAssignedTo());
+
         if (agentId == null || agentId <= 0) {
             throw new IllegalArgumentException(
-                    "Agent ID must be a positive number"
-            );
+                    "Agent ID must be a positive number");
         }
 
         User agent = userRepository.findById(agentId)
@@ -392,6 +465,7 @@ public class TicketServiceImpl implements TicketService {
         ticketRepository.save(ticket);
     }
 
+
     @Override
     @Transactional
     public void deleteMyTicket(
@@ -401,9 +475,10 @@ public class TicketServiceImpl implements TicketService {
         Ticket ticket = getEmployeeTicket(ticketId, employeeEmail);
 
         if (ticket.getStatus() != TicketStatus.OPEN
-                || ticket.getAssignedTo() != null) {
+                && ticket.getStatus() != TicketStatus.REOPENED) {
             throw new IllegalStateException(
-                    "Only OPEN, unassigned tickets can be deleted");
+                    "Only OPEN or REOPENED tickets can be assigned"
+            );
         }
 
         ticket.setDeleted(true);
@@ -411,9 +486,11 @@ public class TicketServiceImpl implements TicketService {
     }
 
     @Override
-    public Ticket unassignTicket(
+    @Transactional
+    public TicketResponse unassignTicket(
             Integer ticketId,
             String adminEmail) {
+
 
         User admin = getUserByEmail(adminEmail);
 
@@ -440,7 +517,7 @@ public class TicketServiceImpl implements TicketService {
         Ticket saved = ticketRepository.save(ticket);
         recordStatusChange(saved, oldStatus, adminEmail);
 
-        return saved;
+        return TicketResponse.from(saved);
     }
 
     @Override
@@ -456,13 +533,6 @@ public class TicketServiceImpl implements TicketService {
         return ticketRepository.findByStatusAndDeletedFalse(
                 status, pageable);
     }
-
-    @Override
-    @Transactional(readOnly = true)
-    public Ticket getTicketById(Integer ticketId) {
-        return getTicketOrThrow(ticketId);
-    }
-
 
     /**
      * Handles workflow transitions that do not require assignment changes.
@@ -843,6 +913,26 @@ public class TicketServiceImpl implements TicketService {
                         new TicketNotFoundException(
                                 "Ticket not found with number: "
                                         + ticketNumber));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public TicketResponse getTicketResponseByTicketNumber(String ticketNumber) {
+
+        if (ticketNumber == null || ticketNumber.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Ticket number cannot be blank"
+            );
+        }
+
+        Ticket ticket = ticketRepository
+                .findByTicketNumberAndDeletedFalse(ticketNumber.trim())
+                .orElseThrow(() ->
+                        new TicketNotFoundException(
+                                "Ticket not found with number: " + ticketNumber
+                        ));
+
+        return TicketResponse.from(ticket);
     }
 
 }

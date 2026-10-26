@@ -24,7 +24,8 @@ public class AgentController {
 
     private final TicketService ticketService;
 
-    // AGENT: Get tickets assigned to the authenticated agent.
+
+
     @GetMapping("/tickets/assigned")
     @PreAuthorize("hasRole('AGENT')")
     public ResponseEntity<Page<TicketResponse>> getMyTickets(
@@ -34,22 +35,14 @@ public class AgentController {
                     size = 10,
                     sort = "createdAt",
                     direction = Sort.Direction.DESC
-            )
-            Pageable pageable) {
+            ) Pageable pageable) {
 
-        String agentEmail = authentication.getName();
-
-        Page<TicketResponse> tickets;
-
-        if (status == null) {
-            tickets = ticketService
-                    .getMyTickets(agentEmail, pageable)
-                    .map(TicketResponse::from);
-        } else {
-            tickets = ticketService
-                    .getMyTicketsByStatus(agentEmail, status, pageable)
-                    .map(TicketResponse::from);
-        }
+        Page<TicketResponse> tickets =
+                ticketService.getMyTicketResponses(
+                        authentication.getName(),
+                        status,
+                        pageable
+                );
 
         return ResponseEntity.ok(tickets);
     }
@@ -61,12 +54,13 @@ public class AgentController {
             @PathVariable Integer id,
             Authentication authentication) {
 
-        Ticket ticket = ticketService.getMyTicketById(
-                id,
-                authentication.getName()
-        );
+        TicketResponse response =
+                ticketService.getMyTicketResponseById(
+                        id,
+                        authentication.getName()
+                );
 
-        return ResponseEntity.ok(TicketResponse.from(ticket));
+        return ResponseEntity.ok(response);
     }
 
     // AGENT: Start an assigned ticket.
@@ -77,27 +71,25 @@ public class AgentController {
             @PathVariable Integer id,
             Authentication authentication) {
 
-        Ticket ticket = ticketService.startTicket(
+        TicketResponse response = ticketService.startTicketResponse(
                 id,
                 authentication.getName()
         );
-
-        return ResponseEntity.ok(TicketResponse.from(ticket));
+        return ResponseEntity.ok(response);
     }
 
-    // AGENT: Resolve an in-progress ticket.
-    // POST /api/tickets/{id}/resolve
     @PostMapping("/tickets/{id}/resolve")
     @PreAuthorize("hasRole('AGENT')")
     public ResponseEntity<TicketResponse> resolveTicket(
             @PathVariable Integer id,
-            Authentication authentication) {
-
-        Ticket ticket = ticketService.resolveTicket(
+            Authentication authentication
+    ) {
+        TicketResponse response = ticketService.resolveTicketResponse(
                 id,
                 authentication.getName()
         );
 
-        return ResponseEntity.ok(TicketResponse.from(ticket));
+        return ResponseEntity.ok(response);
     }
+
 }

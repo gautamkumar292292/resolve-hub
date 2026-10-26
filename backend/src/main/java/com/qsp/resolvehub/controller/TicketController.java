@@ -114,11 +114,12 @@ public class TicketController {
             @PathVariable Integer ticketId,
             @AuthenticationPrincipal User admin) {
 
-        Ticket ticket = ticketService.unassignTicket(
+        TicketResponse response = ticketService.unassignTicket(
                 ticketId,
-                admin.getEmail());
+                admin.getEmail()
+        );
 
-        return ResponseEntity.ok(TicketResponse.from(ticket));
+        return ResponseEntity.ok(response);
     }
 
     // AUTHENTICATED USER: Get a ticket they are authorized to access.
@@ -128,10 +129,11 @@ public class TicketController {
             @PathVariable Integer ticketId,
             Authentication authentication) {
 
-        Ticket ticket = ticketService.getTicketForCurrentUser(
-                ticketId, authentication.getName());
-
-        return ResponseEntity.ok(TicketResponse.from(ticket));
+        return ResponseEntity.ok(
+                ticketService.getTicketResponseById(
+                        ticketId, authentication.getName()
+                )
+        );
     }
 
     // EMPLOYEE: Update own OPEN ticket.
@@ -257,9 +259,9 @@ public class TicketController {
     public ResponseEntity<TicketResponse> getTicketByTicketNumber(
             @PathVariable String ticketNumber) {
 
-        Ticket ticket =
-                ticketService.getTicketByTicketNumber(ticketNumber);
+        TicketResponse response =
+                ticketService.getTicketResponseByTicketNumber(ticketNumber);
 
-        return ResponseEntity.ok(TicketResponse.from(ticket));
+        return ResponseEntity.ok(response);
     }
 }

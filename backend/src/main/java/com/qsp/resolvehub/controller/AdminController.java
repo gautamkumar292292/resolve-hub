@@ -211,15 +211,17 @@ public class AdminController {
 
     // Remove the current agent assignment from a ticket.
     @PostMapping("/tickets/{ticketId}/unassign")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<TicketResponse> unassignTicket(
             @PathVariable Integer ticketId,
             @AuthenticationPrincipal User admin) {
 
-        Ticket ticket = ticketService.unassignTicket(
+        TicketResponse response = ticketService.unassignTicket(
                 ticketId,
-                admin.getEmail());
+                admin.getEmail()
+        );
 
-        return ResponseEntity.ok(TicketResponse.from(ticket));
+        return ResponseEntity.ok(response);
     }
 
     // Get agent workload information.

@@ -61,10 +61,7 @@ public interface TicketService {
             String adminEmail
     );
 
-    Ticket unassignTicket(
-            Integer ticketId,
-            String adminEmail
-    );
+    TicketResponse unassignTicket(Integer ticketId, String adminEmail);
 
     // Employee operations
     Ticket createTicket(
@@ -134,4 +131,24 @@ public interface TicketService {
 
     // Ticket lookup
     Ticket getTicketByTicketNumber(String ticketNumber);
+
+    TicketResponse getTicketResponseByTicketNumber(String ticketNumber);
+
+    TicketResponse getTicketResponseById(
+            Integer ticketId, String currentUserEmail);
+
+    Page<TicketResponse> getMyTicketResponses(
+            String agentEmail,
+            TicketStatus status,
+            Pageable pageable
+    );
+
+    TicketResponse getMyTicketResponseById(
+            Integer ticketId,
+            String agentEmail
+    );
+
+    TicketResponse startTicketResponse(Integer ticketId, String agentEmail);
+
+    TicketResponse resolveTicketResponse(Integer ticketId, String agentEmail);
 }
