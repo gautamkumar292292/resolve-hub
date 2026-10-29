@@ -55,7 +55,9 @@ public interface TicketService {
             String changedByEmail
     );
 
-    Ticket assignTicket(
+    TicketResponse getTicketResponseById(Integer ticketId);
+
+    TicketResponse assignTicket(
             Integer ticketId,
             Integer agentId,
             String adminEmail

@@ -1,10 +1,11 @@
 package com.qsp.resolvehub.service;
 
-import com.qsp.resolvehub.entity.Ticket;
+import com.qsp.resolvehub.dto.response.TicketResponse;
 
 public interface AutoAssignmentService {
 
-
-
-    Ticket assignToLeastBusyAgent(Integer ticketId, String adminEmail);
+    TicketResponse assignToLeastBusyAgent(
+            Integer ticketId,
+            String adminEmail
+    );
 }

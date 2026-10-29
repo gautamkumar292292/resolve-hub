@@ -1,3 +1,4 @@
+
 package com.qsp.resolvehub.repository;
 
 import com.qsp.resolvehub.entity.Ticket;
@@ -6,6 +7,7 @@ import com.qsp.resolvehub.entity.TicketStatus;
 import com.qsp.resolvehub.entity.User;
 
 import jakarta.persistence.LockModeType;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -24,7 +26,9 @@ public interface TicketRepository
     // Agent ticket queries
     Page<Ticket> findByAssignedTo(User assignedTo, Pageable pageable);
 
-    Optional<Ticket> findByIdAndAssignedTo(Integer id, User assignedTo);
+    Optional<Ticket> findByIdAndAssignedTo(
+            Integer id, User assignedTo
+    );
 
     Page<Ticket> findByAssignedToAndStatus(
             User assignedTo,
@@ -35,10 +39,16 @@ public interface TicketRepository
     // Ticket validation and lookup
     boolean existsByTicketNumber(String ticketNumber);
 
-    // Ticket counts
-    long countByAssignedToAndStatus(User assignedTo, TicketStatus status);
+    Optional<Ticket> findByTicketNumber(String ticketNumber);
 
-    long countByAssignedToAndPriority(User assignedTo, TicketPriority priority);
+    // General ticket counts
+    long countByAssignedToAndStatus(
+            User assignedTo, TicketStatus status
+    );
+
+    long countByAssignedToAndPriority(
+            User assignedTo, TicketPriority priority
+    );
 
     long countByStatus(TicketStatus status);
 
@@ -51,107 +61,132 @@ public interface TicketRepository
             Collection<TicketStatus> statuses
     );
 
+    long countByAssignedTo(User assignedTo);
+
     // Admin filtering
-    Page<Ticket> findByStatus(TicketStatus status, Pageable pageable);
+    Page<Ticket> findByStatus(
+            TicketStatus status, Pageable pageable
+    );
 
     // Employee ticket queries
-    Page<Ticket> findByRequester(User requester, Pageable pageable);
+    Page<Ticket> findByRequester(
+            User requester, Pageable pageable
+    );
 
-    Optional<Ticket> findByIdAndRequester(Integer id, User requester);
+    Optional<Ticket> findByIdAndRequester(
+            Integer id, User requester
+    );
 
     // Lock a ticket during a status transition
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
-       SELECT t FROM Ticket t
-       WHERE t.id = :ticketId
-       AND t.deleted = false
-       """)
+            SELECT t FROM Ticket t
+            WHERE t.id = :ticketId
+            AND t.deleted = false
+            """)
     Optional<Ticket> findByIdForUpdate(
             @Param("ticketId") Integer ticketId
     );
 
-
-
+    // Ticket search
     Page<Ticket> findByTitleContainingIgnoreCase(
-            String title,
-            Pageable pageable
+            String title, Pageable pageable
     );
 
     Page<Ticket> findByPriority(
-            TicketPriority priority,
-            Pageable pageable
+            TicketPriority priority, Pageable pageable
     );
 
-    long countByAssignedTo(User assignedTo);
-
-    Optional<Ticket> findByTicketNumber(String ticketNumber);
     // Employee dashboard counts
     long countByRequester(User requester);
 
     long countByRequesterAndStatus(
-            User requester,
-            TicketStatus status
+            User requester, TicketStatus status
     );
 
     // Active ticket lookups
     Optional<Ticket> findByIdAndDeletedFalse(Integer id);
 
     Optional<Ticket> findByIdAndAssignedToAndDeletedFalse(
-            Integer id, User assignedTo);
+            Integer id, User assignedTo
+    );
 
     Optional<Ticket> findByIdAndRequesterAndDeletedFalse(
-            Integer id, User requester);
+            Integer id, User requester
+    );
 
     // Active agent ticket lists
     Page<Ticket> findByAssignedToAndDeletedFalse(
-            User assignedTo, Pageable pageable);
+            User assignedTo, Pageable pageable
+    );
 
     Page<Ticket> findByAssignedToAndStatusAndDeletedFalse(
-            User assignedTo, TicketStatus status, Pageable pageable);
+            User assignedTo,
+            TicketStatus status,
+            Pageable pageable
+    );
 
     // Active employee ticket lists
     Page<Ticket> findByRequesterAndDeletedFalse(
-            User requester, Pageable pageable);
+            User requester, Pageable pageable
+    );
 
     // Active admin ticket lists
     Page<Ticket> findByDeletedFalse(Pageable pageable);
 
     Page<Ticket> findByStatusAndDeletedFalse(
-            TicketStatus status, Pageable pageable);
+            TicketStatus status, Pageable pageable
+    );
 
     // Active ticket search
     Page<Ticket> findByTitleContainingIgnoreCaseAndDeletedFalse(
-            String title, Pageable pageable);
+            String title, Pageable pageable
+    );
 
     Page<Ticket> findByPriorityAndDeletedFalse(
-            TicketPriority priority, Pageable pageable);
+            TicketPriority priority, Pageable pageable
+    );
 
     Optional<Ticket> findByTicketNumberAndDeletedFalse(
-            String ticketNumber);
+            String ticketNumber
+    );
+
+    // Active ticket counts
+    long countByDeletedFalse();
+
     long countByStatusAndDeletedFalse(TicketStatus status);
 
+    long countByStatusInAndDeletedFalse(
+            Collection<TicketStatus> statuses
+    );
+
     long countByAssignedToAndStatusAndDeletedFalse(
-            User assignedTo, TicketStatus status);
+            User assignedTo, TicketStatus status
+    );
 
     long countByAssignedToAndPriorityAndDeletedFalse(
-            User assignedTo, TicketPriority priority);
+            User assignedTo, TicketPriority priority
+    );
 
     long countByAssignedToAndDeletedFalse(User assignedTo);
 
     long countByRequesterAndDeletedFalse(User requester);
 
     long countByRequesterAndStatusAndDeletedFalse(
-            User requester, TicketStatus status);
+            User requester, TicketStatus status
+    );
 
     long countByAssignedToIsNotNullAndDeletedFalse();
 
     long countByAssignedToIsNullAndDeletedFalse();
 
     long countByAssignedToAndStatusInAndDeletedFalse(
-            User assignedTo, Collection<TicketStatus> statuses);
+            User assignedTo,
+            Collection<TicketStatus> statuses
+    );
 
+    // Active category filtering
     Page<Ticket> findByCategoryIdAndDeletedFalse(
-            Integer categoryId,
-            Pageable pageable
+            Integer categoryId, Pageable pageable
     );
 }

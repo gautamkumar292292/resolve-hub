@@ -1,4 +1,3 @@
-
 package com.qsp.resolvehub.dto.response;
 
 import com.qsp.resolvehub.entity.Ticket;
@@ -30,9 +29,11 @@ public record TicketResponse(
                 ticket.getStatus(),
                 ticket.getPriority(),
                 ticket.getRequester() != null
-                        ? ticket.getRequester().getName() : null,
+                        ? ticket.getRequester().getName()
+                        : null,
                 ticket.getAssignedTo() != null
-                        ? ticket.getAssignedTo().getName() : null,
+                        ? ticket.getAssignedTo().getName()
+                        : null,
                 ticket.getCreatedAt(),
                 ticket.getUpdatedAt(),
                 ticket.getResolvedAt()

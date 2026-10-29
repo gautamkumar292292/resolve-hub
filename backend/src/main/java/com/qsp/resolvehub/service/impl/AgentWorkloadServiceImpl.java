@@ -1,3 +1,4 @@
+
 package com.qsp.resolvehub.service.impl;
 
 import com.qsp.resolvehub.dto.response.AgentWorkloadResponse;
@@ -24,18 +25,17 @@ public class AgentWorkloadServiceImpl implements AgentWorkloadService {
 
     @Override
     public List<AgentWorkloadResponse> getAgentWorkloads() {
-
         return userRepository.findAll()
                 .stream()
                 .filter(user -> user.getRole() == Role.AGENT)
+                .filter(User::isAccount_status)
                 .map(this::toResponse)
                 .toList();
     }
 
     private AgentWorkloadResponse toResponse(User agent) {
-
         long activeTickets =
-                ticketRepository.countByAssignedToAndStatusIn(
+                ticketRepository.countByAssignedToAndStatusInAndDeletedFalse(
                         agent,
                         List.of(
                                 TicketStatus.ASSIGNED,

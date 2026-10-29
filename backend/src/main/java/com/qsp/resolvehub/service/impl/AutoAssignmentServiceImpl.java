@@ -1,6 +1,7 @@
 
 package com.qsp.resolvehub.service.impl;
 
+import com.qsp.resolvehub.dto.response.TicketResponse;
 import com.qsp.resolvehub.entity.Role;
 import com.qsp.resolvehub.entity.Ticket;
 import com.qsp.resolvehub.entity.TicketStatus;
@@ -29,35 +30,33 @@ public class AutoAssignmentServiceImpl implements AutoAssignmentService {
 
     @Override
     @Transactional
-    public Ticket assignToLeastBusyAgent(Integer ticketId, String adminEmail) {
+    public TicketResponse assignToLeastBusyAgent(
+            Integer ticketId,
+            String adminEmail) {
 
-        // Fetch and lock the ticket.
         Ticket ticket = ticketRepository.findByIdForUpdate(ticketId)
                 .orElseThrow(() ->
                         new TicketNotFoundException(
                                 "Ticket not found with ID: " + ticketId
                         ));
 
-        // Only OPEN tickets can be auto-assigned.
         if (ticket.getStatus() != TicketStatus.OPEN) {
             throw new IllegalStateException(
                     "Only OPEN tickets can be auto-assigned"
             );
         }
 
-        // Capture the previous status for audit history.
         TicketStatus oldStatus = ticket.getStatus();
 
-        // Retrieve active agents who have the AGENT role.
         List<User> agents =
                 userRepository.findActiveAgentsForUpdate(Role.AGENT);
+
         if (agents.isEmpty()) {
             throw new IllegalStateException(
                     "No active agents are available"
             );
         }
 
-        // Select the agent with the fewest active assigned tickets.
         User selectedAgent = agents.stream()
                 .min(Comparator.comparingLong(agent ->
                         ticketRepository.countByAssignedToAndStatusIn(
@@ -69,13 +68,11 @@ public class AutoAssignmentServiceImpl implements AutoAssignmentService {
                         )))
                 .orElseThrow();
 
-        // Assign the ticket.
         ticket.setAssignedTo(selectedAgent);
         ticket.setStatus(TicketStatus.ASSIGNED);
 
         Ticket savedTicket = ticketRepository.save(ticket);
 
-        // Record the status change within the same transaction.
         ticketHistoryService.recordStatusChange(
                 savedTicket,
                 oldStatus,
@@ -83,6 +80,6 @@ public class AutoAssignmentServiceImpl implements AutoAssignmentService {
                 adminEmail
         );
 
-        return savedTicket;
+        return TicketResponse.from(savedTicket);
     }
 }

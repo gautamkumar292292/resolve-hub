@@ -1,3 +1,4 @@
+
 package com.qsp.resolvehub.service.impl;
 
 import com.qsp.resolvehub.dto.response.AdminDashboardResponse;
@@ -11,6 +12,8 @@ import lombok.RequiredArgsConstructor;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -27,25 +30,34 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
         long totalAgents = userRepository.countByRoles(Role.AGENT);
         long totalEmployees = userRepository.countByRoles(Role.EMPLOYEE);
 
-        long totalTickets = ticketRepository.count();
+        // Count only active tickets (exclude soft-deleted tickets).
+        long totalTickets = ticketRepository.countByDeletedFalse();
 
-        long openTickets =
-                ticketRepository.countByStatus(TicketStatus.OPEN);
+        // OPEN includes both OPEN and REOPENED tickets.
+        long openTickets = ticketRepository.countByStatusInAndDeletedFalse(
+                List.of(TicketStatus.OPEN, TicketStatus.REOPENED)
+        );
 
         long assignedTickets =
-                ticketRepository.countByAssignedToIsNotNull();
+                ticketRepository.countByAssignedToIsNotNullAndDeletedFalse();
 
         long inProgressTickets =
-                ticketRepository.countByStatus(TicketStatus.IN_PROGRESS);
+                ticketRepository.countByStatusAndDeletedFalse(
+                        TicketStatus.IN_PROGRESS
+                );
 
         long resolvedTickets =
-                ticketRepository.countByStatus(TicketStatus.RESOLVED);
+                ticketRepository.countByStatusAndDeletedFalse(
+                        TicketStatus.RESOLVED
+                );
 
         long closedTickets =
-                ticketRepository.countByStatus(TicketStatus.CLOSED);
+                ticketRepository.countByStatusAndDeletedFalse(
+                        TicketStatus.CLOSED
+                );
 
         long unassignedTickets =
-                ticketRepository.countByAssignedToIsNull();
+                ticketRepository.countByAssignedToIsNullAndDeletedFalse();
 
         return new AdminDashboardResponse(
                 totalUsers,

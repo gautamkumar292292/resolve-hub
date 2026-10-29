@@ -113,7 +113,7 @@ public class AdminController {
     }
 
     // ADMIN: Delete an eligible ticket.
-// DELETE /api/admin/tickets/{ticketId}
+    // DELETE /api/admin/tickets/{ticketId}
     @DeleteMapping("/tickets/{ticketId}")
     public ResponseEntity<Void> deleteTicket(
             @PathVariable Integer ticketId,
@@ -175,10 +175,8 @@ public class AdminController {
             @PathVariable Integer ticketId) {
 
         return ResponseEntity.ok(
-                TicketResponse.from(
-                        ticketService.getTicketById(ticketId)));
+                ticketService.getTicketResponseById(ticketId));
     }
-
     // Update ticket status.
     @PatchMapping("/tickets/{ticketId}/status")
     public ResponseEntity<TicketResponse> updateTicketStatus(
@@ -201,12 +199,13 @@ public class AdminController {
             @RequestParam Integer agentId,
             @AuthenticationPrincipal User admin) {
 
-        Ticket ticket = ticketService.assignTicket(
+        TicketResponse response = ticketService.assignTicket(
                 ticketId,
                 agentId,
-                admin.getEmail());
+                admin.getEmail()
+        );
 
-        return ResponseEntity.ok(TicketResponse.from(ticket));
+        return ResponseEntity.ok(response);
     }
 
     // Remove the current agent assignment from a ticket.
@@ -237,10 +236,12 @@ public class AdminController {
             @PathVariable Integer ticketId,
             Authentication authentication) {
 
-        Ticket ticket = autoAssignmentService.assignToLeastBusyAgent(
-                ticketId,
-                authentication.getName());
+        TicketResponse response =
+                autoAssignmentService.assignToLeastBusyAgent(
+                        ticketId,
+                        authentication.getName()
+                );
 
-        return ResponseEntity.ok(TicketResponse.from(ticket));
+        return ResponseEntity.ok(response);
     }
 }

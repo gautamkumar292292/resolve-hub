@@ -1,3 +1,4 @@
+
 package com.qsp.resolvehub.service.impl;
 
 import com.qsp.resolvehub.dto.response.EmployeeDashboardResponse;
@@ -38,28 +39,29 @@ public class EmployeeDashboardServiceImpl
         long totalTickets =
                 ticketRepository.countByRequesterAndDeletedFalse(employee);
 
+        // Count only OPEN tickets, excluding REOPENED.
         long openTickets =
-                ticketRepository.countByRequesterAndStatus(
+                ticketRepository.countByRequesterAndStatusAndDeletedFalse(
                         employee, TicketStatus.OPEN);
 
         long assignedTickets =
-                ticketRepository.countByRequesterAndStatus(
+                ticketRepository.countByRequesterAndStatusAndDeletedFalse(
                         employee, TicketStatus.ASSIGNED);
 
         long inProgressTickets =
-                ticketRepository.countByRequesterAndStatus(
+                ticketRepository.countByRequesterAndStatusAndDeletedFalse(
                         employee, TicketStatus.IN_PROGRESS);
 
         long resolvedTickets =
-                ticketRepository.countByRequesterAndStatus(
+                ticketRepository.countByRequesterAndStatusAndDeletedFalse(
                         employee, TicketStatus.RESOLVED);
 
         long closedTickets =
-                ticketRepository.countByRequesterAndStatus(
+                ticketRepository.countByRequesterAndStatusAndDeletedFalse(
                         employee, TicketStatus.CLOSED);
 
         long reopenedTickets =
-                ticketRepository.countByRequesterAndStatus(
+                ticketRepository.countByRequesterAndStatusAndDeletedFalse(
                         employee, TicketStatus.REOPENED);
 
         return new EmployeeDashboardResponse(

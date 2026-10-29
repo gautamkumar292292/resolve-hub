@@ -355,7 +355,6 @@ public class TicketServiceImpl implements TicketService {
 
         return TicketResponse.from(ticket);
     }
-
     @Override
     @Transactional
     public TicketResponse assignTicketResponse(
@@ -363,14 +362,13 @@ public class TicketServiceImpl implements TicketService {
             Integer agentId,
             String adminEmail) {
 
-        Ticket ticket = assignTicket(
+        return assignTicket(
                 ticketId,
                 agentId,
                 adminEmail
         );
-
-        return TicketResponse.from(ticket);
     }
+
     @Override
     @Transactional
     public TicketResponse closeMyTicketResponse(
@@ -468,9 +466,9 @@ public class TicketServiceImpl implements TicketService {
     }
 
     // -------------------- Admin operations --------------------
-
     @Override
-    public Ticket assignTicket(
+    @Transactional
+    public TicketResponse assignTicket(
             Integer ticketId,
             Integer agentId,
             String adminEmail) {
@@ -485,13 +483,10 @@ public class TicketServiceImpl implements TicketService {
 
         Ticket ticket = getTicketOrThrow(ticketId);
 
-        System.out.println("DEBUG assignTicket: id=" + ticket.getId()
-                + ", status=" + ticket.getStatus()
-                + ", assignedTo=" + ticket.getAssignedTo());
-
         if (agentId == null || agentId <= 0) {
             throw new IllegalArgumentException(
-                    "Agent ID must be a positive number");
+                    "Agent ID must be a positive number"
+            );
         }
 
         User agent = userRepository.findById(agentId)
@@ -521,9 +516,10 @@ public class TicketServiceImpl implements TicketService {
         ticket.setResolvedAt(null);
 
         Ticket saved = ticketRepository.save(ticket);
+
         recordStatusChange(saved, oldStatus, adminEmail);
 
-        return saved;
+        return TicketResponse.from(saved);
     }
 
     @Override
@@ -687,6 +683,12 @@ public class TicketServiceImpl implements TicketService {
         recordStatusChange(saved, oldStatus, changedByEmail);
 
         return saved;
+    }
+    @Override
+    @Transactional(readOnly = true)
+    public TicketResponse getTicketResponseById(Integer ticketId) {
+        Ticket ticket = getTicketOrThrow(ticketId);
+        return TicketResponse.from(ticket);
     }
 
     // -------------------- Employee operations --------------------
@@ -900,7 +902,7 @@ public class TicketServiceImpl implements TicketService {
                         .and((root, query, cb)
                                 -> cb.isFalse(root.get("deleted")));
 
-        
+
         if (user.getRole() == Role.AGENT) {
             if (assignedTo != null
                     && !assignedTo.equals(user.getId())) {

@@ -36,29 +36,42 @@ public class AgentDashboardServiceImpl implements AgentDashboardService {
                     "Only agents can access this resource");
         }
 
-        long assigned = ticketRepository.countByAssignedToAndStatus(
-                agent, TicketStatus.ASSIGNED);
+        // Count active tickets assigned to this agent.
+        long assigned = ticketRepository
+                .countByAssignedToAndStatusAndDeletedFalse(
+                        agent, TicketStatus.ASSIGNED);
 
-        long inProgress = ticketRepository.countByAssignedToAndStatus(
-                agent, TicketStatus.IN_PROGRESS);
+        long inProgress = ticketRepository
+                .countByAssignedToAndStatusAndDeletedFalse(
+                        agent, TicketStatus.IN_PROGRESS);
 
-        long resolved = ticketRepository.countByAssignedToAndStatus(
-                agent, TicketStatus.RESOLVED);
+        long resolved = ticketRepository
+                .countByAssignedToAndStatusAndDeletedFalse(
+                        agent, TicketStatus.RESOLVED);
 
-        long low = ticketRepository.countByAssignedToAndPriority(
-                agent, TicketPriority.LOW);
+        // Count active tickets by priority for this agent.
+        long low = ticketRepository
+                .countByAssignedToAndPriorityAndDeletedFalse(
+                        agent, TicketPriority.LOW);
 
-        long medium = ticketRepository.countByAssignedToAndPriority(
-                agent, TicketPriority.MEDIUM);
+        long medium = ticketRepository
+                .countByAssignedToAndPriorityAndDeletedFalse(
+                        agent, TicketPriority.MEDIUM);
 
-        long high = ticketRepository.countByAssignedToAndPriority(
-                agent, TicketPriority.HIGH);
+        long high = ticketRepository
+                .countByAssignedToAndPriorityAndDeletedFalse(
+                        agent, TicketPriority.HIGH);
 
-        long critical = ticketRepository.countByAssignedToAndPriority(
-                agent, TicketPriority.CRITICAL);
+        long critical = ticketRepository
+                .countByAssignedToAndPriorityAndDeletedFalse(
+                        agent, TicketPriority.CRITICAL);
+
+        long closed = ticketRepository
+                .countByAssignedToAndStatusAndDeletedFalse(
+                        agent, TicketStatus.CLOSED);
 
         return new AgentDashboardResponse(
-                assigned + inProgress + resolved,
+                assigned + inProgress + resolved + closed,
                 inProgress,
                 resolved,
                 low,
@@ -66,6 +79,5 @@ public class AgentDashboardServiceImpl implements AgentDashboardService {
                 high,
                 critical
         );
-
     }
 }
