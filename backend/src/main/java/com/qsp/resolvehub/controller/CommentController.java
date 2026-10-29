@@ -3,7 +3,6 @@ package com.qsp.resolvehub.controller;
 
 import com.qsp.resolvehub.dto.request.CommentRequest;
 import com.qsp.resolvehub.dto.response.CommentResponse;
-import com.qsp.resolvehub.entity.Comment;
 import com.qsp.resolvehub.service.CommentService;
 
 import jakarta.validation.Valid;
@@ -27,24 +26,21 @@ public class CommentController {
 
     private final CommentService commentService;
 
-    // Add a comment to an accessible ticket.
     @PostMapping
     public ResponseEntity<CommentResponse> addComment(
             @PathVariable Integer ticketId,
             @Valid @RequestBody CommentRequest request,
             Authentication authentication) {
 
-        Comment comment = commentService.addComment(
+        CommentResponse response = commentService.addComment(
                 ticketId,
                 authentication.getName(),
                 request.content()
         );
 
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(CommentResponse.from(comment));
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    // Get paginated comments for an accessible ticket.
     @GetMapping
     public ResponseEntity<Page<CommentResponse>> getComments(
             @PathVariable Integer ticketId,
@@ -53,20 +49,18 @@ public class CommentController {
                     size = 10,
                     sort = "createdAt",
                     direction = Sort.Direction.DESC
-            )
-            Pageable pageable) {
+            ) Pageable pageable) {
 
         Page<CommentResponse> comments =
                 commentService.getTicketComments(
                         ticketId,
                         authentication.getName(),
                         pageable
-                ).map(CommentResponse::from);
+                );
 
         return ResponseEntity.ok(comments);
     }
 
-    // Only the comment author can edit their comment.
     @PutMapping("/{commentId}")
     public ResponseEntity<CommentResponse> updateComment(
             @PathVariable Integer ticketId,
@@ -74,17 +68,16 @@ public class CommentController {
             @Valid @RequestBody CommentRequest request,
             Authentication authentication) {
 
-        Comment comment = commentService.updateComment(
+        CommentResponse response = commentService.updateComment(
                 ticketId,
                 commentId,
                 authentication.getName(),
                 request.content()
         );
 
-        return ResponseEntity.ok(CommentResponse.from(comment));
+        return ResponseEntity.ok(response);
     }
 
-    // The comment author or an admin can delete a comment.
     @DeleteMapping("/{commentId}")
     public ResponseEntity<Void> deleteComment(
             @PathVariable Integer ticketId,

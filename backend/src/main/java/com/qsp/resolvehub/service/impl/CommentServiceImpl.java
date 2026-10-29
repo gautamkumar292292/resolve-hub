@@ -1,6 +1,7 @@
 
 package com.qsp.resolvehub.service.impl;
 
+import com.qsp.resolvehub.dto.response.CommentResponse;
 import com.qsp.resolvehub.entity.Comment;
 import com.qsp.resolvehub.entity.Role;
 import com.qsp.resolvehub.entity.Ticket;
@@ -68,9 +69,7 @@ public class CommentServiceImpl implements CommentService {
         return switch (user.getRole()) {
             case ADMIN -> ticketRepository.findById(ticketId)
                     .orElseThrow(() ->
-                            new TicketNotFoundException(
-                                    "Ticket not found"
-                            ));
+                            new TicketNotFoundException("Ticket not found"));
 
             case EMPLOYEE -> ticketRepository
                     .findByIdAndRequester(ticketId, user)
@@ -115,9 +114,7 @@ public class CommentServiceImpl implements CommentService {
 
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() ->
-                        new IllegalArgumentException(
-                                "Comment not found"
-                        ));
+                        new IllegalArgumentException("Comment not found"));
 
         if (comment.getTicket() == null
                 || !comment.getTicket().getId().equals(ticket.getId())) {
@@ -130,7 +127,7 @@ public class CommentServiceImpl implements CommentService {
     }
 
     @Override
-    public Comment addComment(
+    public CommentResponse addComment(
             Integer ticketId,
             String userEmail,
             String content) {
@@ -145,12 +142,15 @@ public class CommentServiceImpl implements CommentService {
         comment.setUser(user);
         comment.setContent(validateContent(content));
 
-        return commentRepository.save(comment);
+        Comment savedComment = commentRepository.save(comment);
+
+        // Map while the transaction and persistence context are active.
+        return CommentResponse.from(savedComment);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public Page<Comment> getTicketComments(
+    public Page<CommentResponse> getTicketComments(
             Integer ticketId,
             String userEmail,
             Pageable pageable) {
@@ -161,11 +161,12 @@ public class CommentServiceImpl implements CommentService {
         Ticket ticket = getAccessibleTicket(ticketId, user);
 
         return commentRepository
-                .findByTicketOrderByCreatedAtDesc(ticket, pageable);
+                .findByTicketOrderByCreatedAtDesc(ticket, pageable)
+                .map(CommentResponse::from);
     }
 
     @Override
-    public Comment updateComment(
+    public CommentResponse updateComment(
             Integer ticketId,
             Integer commentId,
             String userEmail,
@@ -190,7 +191,10 @@ public class CommentServiceImpl implements CommentService {
 
         comment.setContent(validateContent(content));
 
-        return commentRepository.save(comment);
+        Comment savedComment = commentRepository.save(comment);
+
+        // Build the DTO before the transaction ends.
+        return CommentResponse.from(savedComment);
     }
 
     @Override

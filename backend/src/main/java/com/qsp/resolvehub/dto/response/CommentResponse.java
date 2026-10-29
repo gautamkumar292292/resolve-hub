@@ -12,7 +12,6 @@ public record CommentResponse(
         String content,
         LocalDateTime createdAt
 ) {
-
     public static CommentResponse from(Comment comment) {
         return new CommentResponse(
                 comment.getId(),
