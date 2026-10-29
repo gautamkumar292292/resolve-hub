@@ -1,3 +1,4 @@
+
 package com.qsp.resolvehub;
 
 import org.junit.jupiter.api.Test;
@@ -9,5 +10,4 @@ class ResolveHubApplicationTests {
 	@Test
 	void contextLoads() {
 	}
-
 }

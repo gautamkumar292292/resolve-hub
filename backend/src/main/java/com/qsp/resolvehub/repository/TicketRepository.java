@@ -79,11 +79,7 @@ public interface TicketRepository
 
     // Lock a ticket during a status transition
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("""
-            SELECT t FROM Ticket t
-            WHERE t.id = :ticketId
-            AND t.deleted = false
-            """)
+    @Query("SELECT t FROM Ticket t WHERE t.id = :ticketId")
     Optional<Ticket> findByIdForUpdate(
             @Param("ticketId") Integer ticketId
     );
@@ -189,4 +185,5 @@ public interface TicketRepository
     Page<Ticket> findByCategoryIdAndDeletedFalse(
             Integer categoryId, Pageable pageable
     );
+
 }

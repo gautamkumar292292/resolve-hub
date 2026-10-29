@@ -50,24 +50,26 @@ public class SecurityConfig {
                         )
                 )
 
+
                 .exceptionHandling(exception -> exception
-                        .authenticationEntryPoint(
-                                (request, response, authException) -> {
-                                    response.sendError(
-                                            HttpServletResponse.SC_UNAUTHORIZED,
-                                            "Unauthorized: Authentication required"
-                                    );
-                                }
-                        )
-                        .accessDeniedHandler(
-                                (request, response, accessDeniedException) -> {
-                                    response.sendError(
-                                            HttpServletResponse.SC_FORBIDDEN,
-                                            "Forbidden: Access denied"
-                                    );
-                                }
-                        )
+
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                            response.setContentType("application/json");
+                            response.getWriter().write(
+                                    "{\"status\":401,\"error\":\"Unauthorized\",\"message\":\"Authentication required\"}"
+                            );
+                        })
+
+                        .accessDeniedHandler((request, response, accessDeniedException) -> {
+                            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                            response.setContentType("application/json");
+                            response.getWriter().write(
+                                    "{\"status\":403,\"error\":\"Forbidden\",\"message\":\"Access denied\"}"
+                            );
+                        })
                 )
+
 
                 .authorizeHttpRequests(auth -> auth
 

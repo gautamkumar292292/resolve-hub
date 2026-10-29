@@ -496,7 +496,12 @@ public class TicketServiceImpl implements TicketService {
             );
         }
 
-        Ticket ticket = getTicketOrThrow(ticketId);
+        Ticket ticket = ticketRepository.findByIdForUpdate(ticketId)
+                .orElseThrow(() ->
+                        new TicketNotFoundException(
+                                "Ticket not found with ID: " + ticketId
+                        )
+                );
 
         if (agentId == null || agentId <= 0) {
             throw new IllegalArgumentException(

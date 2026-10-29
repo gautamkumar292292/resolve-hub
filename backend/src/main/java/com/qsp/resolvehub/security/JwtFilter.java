@@ -32,13 +32,17 @@ public class JwtFilter extends OncePerRequestFilter {
     protected void doFilterInternal(
             HttpServletRequest request,
             HttpServletResponse response,
-            FilterChain filterChain)
-            throws ServletException, IOException {
+            FilterChain filterChain
+    ) throws ServletException, IOException {
 
-        String authorizationHeader = request.getHeader("Authorization");
+        String authorizationHeader =
+                request.getHeader("Authorization");
 
+        // No Bearer token: let Spring Security handle
+        // whether authentication is required.
         if (authorizationHeader == null
                 || !authorizationHeader.startsWith("Bearer ")) {
+
             filterChain.doFilter(request, response);
             return;
         }
@@ -46,7 +50,7 @@ public class JwtFilter extends OncePerRequestFilter {
         String token = authorizationHeader.substring(7).trim();
 
         if (token.isEmpty()) {
-            rejectRequest(response);
+            rejectRequest(response, "Empty Bearer token");
             return;
         }
 
@@ -54,58 +58,92 @@ public class JwtFilter extends OncePerRequestFilter {
             String email = jwtService.extractUsername(token);
 
             if (email == null || email.isBlank()) {
-                rejectRequest(response);
+                rejectRequest(response, "Token has no username");
                 return;
             }
 
-            if (SecurityContextHolder.getContext().getAuthentication() == null) {
+            // Avoid replacing an existing authentication.
+            if (SecurityContextHolder.getContext()
+                    .getAuthentication() != null) {
 
-                UserDetails userDetails =
-                        userDetailsService.loadUserByUsername(email);
-
-                boolean valid = jwtService.isTokenValid(token, userDetails);
-
-                if (!valid || !userDetails.isEnabled()) {
-                    rejectRequest(response);
-                    return;
-                }
-
-                UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(
-                                userDetails,
-                                null,
-                                userDetails.getAuthorities()
-                        );
-
-                authentication.setDetails(
-                        new WebAuthenticationDetailsSource()
-                                .buildDetails(request)
-                );
-
-                SecurityContextHolder.getContext()
-                        .setAuthentication(authentication);
+                filterChain.doFilter(request, response);
+                return;
             }
+
+            UserDetails userDetails =
+                    userDetailsService.loadUserByUsername(email);
+
+            // Validate signature, expiration and user details
+            // according to JwtService implementation.
+            if (!jwtService.isTokenValid(token, userDetails)) {
+                rejectRequest(response, "Invalid or expired token");
+                return;
+            }
+
+            // Reject disabled/inactive accounts.
+            if (!userDetails.isEnabled()) {
+                rejectRequest(response, "User account is disabled");
+                return;
+            }
+
+            UsernamePasswordAuthenticationToken authentication =
+                    new UsernamePasswordAuthenticationToken(
+                            userDetails,
+                            null,
+                            userDetails.getAuthorities()
+                    );
+
+            authentication.setDetails(
+                    new WebAuthenticationDetailsSource()
+                            .buildDetails(request)
+            );
+
+            SecurityContextHolder.getContext()
+                    .setAuthentication(authentication);
+
+            log.debug(
+                    "JWT authenticated request: URI={}, authorities={}",
+                    request.getRequestURI(),
+                    authentication.getAuthorities()
+            );
 
             filterChain.doFilter(request, response);
 
-        } catch (JwtException
-                 | IllegalArgumentException
-                 | UsernameNotFoundException ex) {
+        } catch (JwtException | IllegalArgumentException ex) {
 
-            log.warn("JWT authentication failed: {}",
-                    ex.getClass().getSimpleName());
+            log.warn(
+                    "JWT validation failed for URI={}: {}",
+                    request.getRequestURI(),
+                    ex.getClass().getSimpleName()
+            );
 
-            SecurityContextHolder.clearContext();
-            rejectRequest(response);
+            rejectRequest(response, "Invalid or expired token");
+
+        } catch (UsernameNotFoundException ex) {
+
+            log.warn(
+                    "JWT user not found for URI={}",
+                    request.getRequestURI()
+            );
+
+            rejectRequest(response, "User no longer exists");
         }
     }
 
-    private void rejectRequest(HttpServletResponse response)
-            throws IOException {
+    private void rejectRequest(
+            HttpServletResponse response,
+            String reason
+    ) throws IOException {
+
         SecurityContextHolder.clearContext();
-        response.sendError(
-                HttpServletResponse.SC_UNAUTHORIZED,
-                "Invalid or expired authentication token"
-        );
+
+        log.debug("Rejecting JWT request: {}", reason);
+
+        if (!response.isCommitted()) {
+            response.sendError(
+                    HttpServletResponse.SC_UNAUTHORIZED,
+                    "Invalid or expired authentication token"
+            );
+        }
     }
 }
