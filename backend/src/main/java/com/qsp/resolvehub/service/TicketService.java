@@ -45,6 +45,17 @@ public interface TicketService {
             Pageable pageable
     );
 
+    Page<TicketResponse> getAllTicketResponses(
+            TicketStatus status,
+            Pageable pageable
+    );
+
+    TicketResponse updateTicketStatusResponse(
+            Integer ticketId,
+            TicketStatus newStatus,
+            String changedByEmail
+    );
+
     void deleteTicketAsAdmin(Integer ticketId, String adminEmail);
 
     Ticket getTicketById(Integer ticketId);
@@ -190,4 +201,5 @@ public interface TicketService {
     );
 
 
+    Long countMyAssignedTickets(String agentEmail);
 }

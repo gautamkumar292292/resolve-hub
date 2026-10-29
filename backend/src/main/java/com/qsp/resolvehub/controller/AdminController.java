@@ -162,13 +162,11 @@ public class AdminController {
 
         Pageable pageable = PageRequest.of(page, size);
 
-        Page<TicketResponse> tickets = ticketService
-                .getAllTickets(status, pageable)
-                .map(TicketResponse::from);
+        Page<TicketResponse> tickets =
+                ticketService.getAllTicketResponses(status, pageable);
 
         return ResponseEntity.ok(tickets);
     }
-
     // Get a ticket by ID.
     @GetMapping("/tickets/{ticketId}")
     public ResponseEntity<TicketResponse> getTicketById(
@@ -184,12 +182,14 @@ public class AdminController {
             @Valid @RequestBody UpdateTicketStatusRequest request,
             Authentication authentication) {
 
-        Ticket ticket = ticketService.updateTicketStatus(
-                ticketId,
-                request.status(),
-                authentication.getName());
+        TicketResponse response =
+                ticketService.updateTicketStatusResponse(
+                        ticketId,
+                        request.status(),
+                        authentication.getName()
+                );
 
-        return ResponseEntity.ok(TicketResponse.from(ticket));
+        return ResponseEntity.ok(response);
     }
 
     // Manually assign a ticket to an agent.

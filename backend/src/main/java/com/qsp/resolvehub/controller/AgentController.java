@@ -92,4 +92,18 @@ public class AgentController {
         return ResponseEntity.ok(response);
     }
 
+
+    // AGENT: Count my own assigned tickets
+    @GetMapping("/agent/tickets/count")
+    @PreAuthorize("hasRole('AGENT')")
+    public ResponseEntity<Long> countMyAssignedTickets(
+            Authentication authentication) {
+
+        Long count = ticketService.countMyAssignedTickets(
+                authentication.getName()
+        );
+
+        return ResponseEntity.ok(count);
+    }
+
 }

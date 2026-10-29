@@ -419,6 +419,21 @@ public class TicketServiceImpl implements TicketService {
         return tickets.map(TicketResponse::from);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public Long countMyAssignedTickets(String agentEmail) {
+
+        User agent = getUserByEmail(agentEmail);
+
+        if (agent.getRole() != Role.AGENT || !agent.isEnabled()) {
+            throw new AccessDeniedException(
+                    "Only active agents can view their ticket count"
+            );
+        }
+
+        return countTicketsAssignedTo(agent.getId());
+    }
+
 
     @Override
     public Ticket startTicket(
@@ -616,6 +631,33 @@ public class TicketServiceImpl implements TicketService {
 
         return ticketRepository.findByStatusAndDeletedFalse(
                 status, pageable);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<TicketResponse> getAllTicketResponses(
+            TicketStatus status,
+            Pageable pageable) {
+
+        Page<Ticket> tickets = getAllTickets(status, pageable);
+
+        return tickets.map(TicketResponse::from);
+    }
+
+    @Override
+    @Transactional
+    public TicketResponse updateTicketStatusResponse(
+            Integer ticketId,
+            TicketStatus newStatus,
+            String changedByEmail) {
+
+        Ticket ticket = updateTicketStatus(
+                ticketId,
+                newStatus,
+                changedByEmail
+        );
+
+        return TicketResponse.from(ticket);
     }
 
     /**
