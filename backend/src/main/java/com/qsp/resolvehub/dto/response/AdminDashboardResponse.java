@@ -1,9 +1,11 @@
+
 package com.qsp.resolvehub.dto.response;
 
 public record AdminDashboardResponse(
         long totalUsers,
         long totalAgents,
         long totalEmployees,
+        long totalAdmins,
         long totalTickets,
         long openTickets,
         long assignedTickets,

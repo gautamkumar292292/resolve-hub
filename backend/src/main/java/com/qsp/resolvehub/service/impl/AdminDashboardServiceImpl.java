@@ -26,17 +26,31 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
     @Override
     public AdminDashboardResponse getDashboard() {
 
+        // User statistics.
+        // Inactive users are included, matching the existing behavior.
         long totalUsers = userRepository.count();
-        long totalAgents = userRepository.countByRoles(Role.AGENT);
-        long totalEmployees = userRepository.countByRoles(Role.EMPLOYEE);
+
+        long totalAgents =
+                userRepository.countByRoles(Role.AGENT);
+
+        long totalEmployees =
+                userRepository.countByRoles(Role.EMPLOYEE);
+
+        long totalAdmins =
+                userRepository.countByRoles(Role.ADMIN);
 
         // Count only active tickets (exclude soft-deleted tickets).
-        long totalTickets = ticketRepository.countByDeletedFalse();
+        long totalTickets =
+                ticketRepository.countByDeletedFalse();
 
         // OPEN includes both OPEN and REOPENED tickets.
-        long openTickets = ticketRepository.countByStatusInAndDeletedFalse(
-                List.of(TicketStatus.OPEN, TicketStatus.REOPENED)
-        );
+        long openTickets =
+                ticketRepository.countByStatusInAndDeletedFalse(
+                        List.of(
+                                TicketStatus.OPEN,
+                                TicketStatus.REOPENED
+                        )
+                );
 
         long assignedTickets =
                 ticketRepository.countByAssignedToIsNotNullAndDeletedFalse();
@@ -63,6 +77,7 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
                 totalUsers,
                 totalAgents,
                 totalEmployees,
+                totalAdmins,
                 totalTickets,
                 openTickets,
                 assignedTickets,

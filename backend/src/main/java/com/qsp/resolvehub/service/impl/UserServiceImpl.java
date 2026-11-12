@@ -30,9 +30,11 @@ public class UserServiceImpl implements UserService {
     @Override
     public UserResponse updateProfile(
             Integer userId,
-            UpdateUserRequest request) {
+            UpdateUserRequest request
+    ) {
 
         User user = findUser(userId);
+
         applyProfileChanges(user, request);
 
         return UserResponse.from(userRepository.save(user));
@@ -44,6 +46,24 @@ public class UserServiceImpl implements UserService {
     public List<UserResponse> getAllUsers() {
 
         return userRepository.findAll()
+                .stream()
+                .map(UserResponse::from)
+                .toList();
+    }
+
+    // Return users belonging to a specific role.
+    @Override
+    @Transactional(readOnly = true)
+    public List<UserResponse> getUsersByRole(Role role) {
+
+        if (role == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Role is required"
+            );
+        }
+
+        return userRepository.findAllByRoles(role)
                 .stream()
                 .map(UserResponse::from)
                 .toList();
@@ -61,9 +81,11 @@ public class UserServiceImpl implements UserService {
     @Override
     public UserResponse adminUpdateUser(
             Integer id,
-            UpdateUserRequest request) {
+            UpdateUserRequest request
+    ) {
 
         User user = findUser(id);
+
         applyProfileChanges(user, request);
 
         return UserResponse.from(userRepository.save(user));
@@ -73,7 +95,8 @@ public class UserServiceImpl implements UserService {
     @Override
     public UserResponse updateUserRole(
             Integer id,
-            UpdateRoleRequest request) {
+            UpdateRoleRequest request
+    ) {
 
         if (request == null || request.getRoles() == null) {
             throw new ResponseStatusException(
@@ -83,6 +106,7 @@ public class UserServiceImpl implements UserService {
         }
 
         User user = findUser(id);
+
         Role requestedRole = request.getRoles();
 
         user.setRoles(requestedRole);
@@ -96,7 +120,8 @@ public class UserServiceImpl implements UserService {
     @Override
     public UserResponse setUserStatus(
             Integer id,
-            boolean active) {
+            boolean active
+    ) {
 
         User user = findUser(id);
 
@@ -107,16 +132,12 @@ public class UserServiceImpl implements UserService {
         return UserResponse.from(userRepository.save(user));
     }
 
-    // Return only users whose role is ADMIN.
+    // Return only administrators.
     @Override
     @Transactional(readOnly = true)
     public List<UserResponse> getAllAdmins() {
 
-        return userRepository.findAll()
-                .stream()
-                .filter(user -> user.getRoles() == Role.ADMIN)
-                .map(UserResponse::from)
-                .toList();
+        return getUsersByRole(Role.ADMIN);
     }
 
     // Find a user or return 404.
@@ -134,7 +155,8 @@ public class UserServiceImpl implements UserService {
     // Update only permitted profile fields.
     private void applyProfileChanges(
             User user,
-            UpdateUserRequest request) {
+            UpdateUserRequest request
+    ) {
 
         if (request == null) {
             throw new ResponseStatusException(
@@ -144,6 +166,7 @@ public class UserServiceImpl implements UserService {
         }
 
         if (request.getName() != null) {
+
             String name = request.getName().trim();
 
             if (name.isBlank()) {
@@ -157,6 +180,7 @@ public class UserServiceImpl implements UserService {
         }
 
         if (request.getEmail() != null) {
+
             String email = request.getEmail()
                     .trim()
                     .toLowerCase(Locale.ROOT);
@@ -185,6 +209,7 @@ public class UserServiceImpl implements UserService {
         }
 
         if (request.getPhone() != null) {
+
             user.setPhone(request.getPhone().trim());
         }
     }

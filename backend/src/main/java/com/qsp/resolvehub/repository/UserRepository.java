@@ -1,3 +1,4 @@
+
 package com.qsp.resolvehub.repository;
 
 import com.qsp.resolvehub.entity.Role;
@@ -25,27 +26,33 @@ public interface UserRepository extends JpaRepository<User, Integer> {
 
     boolean existsByEmailAndIdNot(String email, Integer id);
 
+    // Count users belonging to a particular role.
+    long countByRoles(Role roles);
 
+    // Fetch users belonging to a particular role directly from the database.
+    List<User> findAllByRoles(Role roles);
+
+    // Increment token version to invalidate existing JWTs.
     @Modifying(
             flushAutomatically = true,
             clearAutomatically = true
     )
     @Transactional
     @Query("""
-        UPDATE User u
-        SET u.tokenVersion = u.tokenVersion + 1
-        WHERE u.id = :userId
-        """)
+            UPDATE User u
+            SET u.tokenVersion = u.tokenVersion + 1
+            WHERE u.id = :userId
+            """)
     int incrementTokenVersion(@Param("userId") Integer userId);
 
-    long countByRoles(Role roles);
+    // Lock active agents during automatic ticket assignment.
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
-        SELECT u FROM User u
-        WHERE u.roles = :role
-        AND u.account_status = true
-        ORDER BY u.id
-        """)
+            SELECT u FROM User u
+            WHERE u.roles = :role
+            AND u.account_status = true
+            ORDER BY u.id
+            """)
     List<User> findActiveAgentsForUpdate(
             @Param("role") Role role
     );
